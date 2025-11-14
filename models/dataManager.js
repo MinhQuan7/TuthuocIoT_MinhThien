@@ -1,6 +1,11 @@
 const fs = require("fs").promises;
 const path = require("path");
 
+// Helper function để generate unique ID
+function generateId() {
+  return Date.now() + Math.floor(Math.random() * 1000);
+}
+
 class DataManager {
   constructor() {
     this.dataFile = path.join(__dirname, "../data/heThongData.json");
@@ -42,14 +47,14 @@ class DataManager {
         lowStock: [],
         expiringSoon: [],
         expired: [],
-        lastUpdated: now.toISOString()
+        lastUpdated: now.toISOString(),
       },
       statistics: {
         compliance: {},
         labels: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
         dailyBreakdown: {},
         weeklyUsage: {},
-        monthlyTrends: {}
+        monthlyTrends: {},
       },
     };
   }
@@ -62,11 +67,35 @@ class DataManager {
 
       // Validate and merge with default structure
       const defaultData = this.getDefaultData();
-      return this.mergeWithDefaults(parsedData, defaultData);
+      const mergedData = this.mergeWithDefaults(parsedData, defaultData);
+      
+      // Debug log cho việc load data
+      console.log(`[DataManager] Data loaded successfully:`, {
+        users: mergedData.users?.length || 0,
+        medicines: mergedData.medicines?.length || 0,
+        schedules: mergedData.schedules?.length || 0,
+        alerts: mergedData.alerts?.length || 0
+      });
+      
+      if (mergedData.users && mergedData.users.length > 0) {
+        console.log(`[DataManager] User details:`, 
+          mergedData.users.map(u => ({ id: u.id, name: u.name, active: u.isActive }))
+        );
+      }
+      
+      return mergedData;
     } catch (error) {
       console.log("[DataManager] Khởi tạo dữ liệu mặc định:", error.message);
       const defaultData = this.getDefaultData();
       await this.saveData(defaultData);
+      
+      console.log(`[DataManager] Default data created:`, {
+        users: defaultData.users?.length || 0,
+        medicines: defaultData.medicines?.length || 0,
+        schedules: defaultData.schedules?.length || 0,
+        alerts: defaultData.alerts?.length || 0
+      });
+      
       return defaultData;
     }
   }
@@ -166,7 +195,7 @@ class DataManager {
     const newMedicine = {
       id: Date.now(),
       name: medicineData.name,
-      category: medicineData.category || 'other',
+      category: medicineData.category || "other",
       dosage: medicineData.dosage,
       instructions: medicineData.instructions || "",
       sideEffects: medicineData.sideEffects || "",
@@ -174,35 +203,37 @@ class DataManager {
       quantity: medicineData.quantity || 0,
       minThreshold: medicineData.minThreshold || 5,
       createdAt: new Date().toISOString(),
-      isActive: true
+      isActive: true,
     };
 
     data.medicines.push(newMedicine);
-    
+
     // Cập nhật inventory sau khi thêm medicine
     this.updateInventoryData(data);
-    
+
     await this.saveData(data);
     return newMedicine;
   }
 
   async addSchedule(scheduleData) {
     const data = await this.loadData();
-    
+
     // Nếu có medicineName, tạo hoặc tìm medicine
     let medicineId = scheduleData.medicineId;
     if (scheduleData.medicineName && !medicineId) {
       // Tìm medicine đã tồn tại
-      let existingMedicine = data.medicines.find(m => m.name === scheduleData.medicineName);
-      
+      let existingMedicine = data.medicines.find(
+        (m) => m.name === scheduleData.medicineName
+      );
+
       if (!existingMedicine) {
         // Tạo medicine mới
         const newMedicine = {
           id: Date.now() + Math.random() * 1000,
           name: scheduleData.medicineName,
-          category: scheduleData.medicineCategory || 'other',
-          dosage: 'Theo chỉ định bác sỹ',
-          instructions: '',
+          category: scheduleData.medicineCategory || "other",
+          dosage: "Theo chỉ định bác sỹ",
+          instructions: "",
           quantity: 30, // Mặc định 30 viên
           minThreshold: 5,
           expiryDate: null,
@@ -214,27 +245,28 @@ class DataManager {
         medicineId = existingMedicine.id;
       }
     }
-    
+
     const newSchedule = {
-      id: Date.now() + Math.random() * 1000,
+      id: generateId(),
       userId: parseInt(scheduleData.userId),
       medicineId: medicineId,
       date: scheduleData.date,
       period: scheduleData.period,
+      customTime: scheduleData.customTime || null,
       status: "pending",
       createdAt: new Date().toISOString(),
       actualTime: null,
       notes: scheduleData.notes || "",
       weekdays: scheduleData.weekdays || [],
       usageDuration: scheduleData.usageDuration || 30,
-      endDate: scheduleData.endDate || null
+      endDate: scheduleData.endDate || null,
     };
 
     data.schedules.push(newSchedule);
-    
+
     // Cập nhật inventory
     this.updateInventoryData(data);
-    
+
     await this.saveData(data);
     return newSchedule;
   }
@@ -263,6 +295,7 @@ class DataManager {
           medicine: `${medicine.name} (${medicine.dosage})`,
           status: status,
           period: schedule.period,
+          customTime: schedule.customTime,
         };
 
         data.timeline.push(timelineEntry);
@@ -307,7 +340,7 @@ class DataManager {
       (s) => s.status === "taken"
     ).length;
     data.statistics.dailyBreakdown[userKey][today] = todayCompleted;
-    
+
     // Update weekly usage
     const weekStart = new Date();
     weekStart.setDate(weekStart.getDate() - weekStart.getDay());
@@ -315,9 +348,11 @@ class DataManager {
       const scheduleDate = new Date(s.date);
       return scheduleDate >= weekStart;
     });
-    data.statistics.weeklyUsage[userKey] = weekSchedules.filter(s => s.status === "taken").length;
+    data.statistics.weeklyUsage[userKey] = weekSchedules.filter(
+      (s) => s.status === "taken"
+    ).length;
   }
-  
+
   updateInventoryData(data) {
     const now = new Date();
     const inventory = {
@@ -325,10 +360,10 @@ class DataManager {
       lowStock: [],
       expiringSoon: [],
       expired: [],
-      lastUpdated: now.toISOString()
+      lastUpdated: now.toISOString(),
     };
-    
-    data.medicines.forEach(medicine => {
+
+    data.medicines.forEach((medicine) => {
       // Kiểm tra số lượng tồn kho
       if (medicine.quantity <= medicine.minThreshold) {
         inventory.lowStock.push({
@@ -336,45 +371,52 @@ class DataManager {
           name: medicine.name,
           quantity: medicine.quantity,
           threshold: medicine.minThreshold,
-          daysRemaining: this.calculateDaysRemaining(medicine.id, data.schedules)
+          daysRemaining: this.calculateDaysRemaining(
+            medicine.id,
+            data.schedules
+          ),
         });
       }
-      
+
       // Kiểm tra hạn sử dụng
       if (medicine.expiryDate) {
         const expiryDate = new Date(medicine.expiryDate);
-        const daysToExpiry = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
-        
+        const daysToExpiry = Math.ceil(
+          (expiryDate - now) / (1000 * 60 * 60 * 24)
+        );
+
         if (daysToExpiry <= 0) {
           inventory.expired.push({
             id: medicine.id,
             name: medicine.name,
             expiryDate: medicine.expiryDate,
-            daysExpired: Math.abs(daysToExpiry)
+            daysExpired: Math.abs(daysToExpiry),
           });
         } else if (daysToExpiry <= 30) {
           inventory.expiringSoon.push({
             id: medicine.id,
             name: medicine.name,
             expiryDate: medicine.expiryDate,
-            daysToExpiry: daysToExpiry
+            daysToExpiry: daysToExpiry,
           });
         }
       }
     });
-    
+
     data.inventory = inventory;
   }
-  
+
   calculateDaysRemaining(medicineId, schedules) {
     // Tính toán số ngày còn lại dựa trên lịch uống
-    const medicineSchedules = schedules.filter(s => s.medicineId === medicineId && s.status === 'pending');
-    const medicine = this.medicines?.find(m => m.id === medicineId);
-    
+    const medicineSchedules = schedules.filter(
+      (s) => s.medicineId === medicineId && s.status === "pending"
+    );
+    const medicine = this.medicines?.find((m) => m.id === medicineId);
+
     if (!medicine || medicineSchedules.length === 0) {
       return medicine?.quantity || 0;
     }
-    
+
     // Ước tính dựa trên tần suất uống hàng ngày
     const dailyFrequency = medicineSchedules.length / 7; // Giả sử lịch theo tuần
     return Math.floor(medicine.quantity / dailyFrequency);
@@ -428,8 +470,20 @@ class DataManager {
     return data.schedules
       .filter((schedule) => schedule.date === today)
       .sort((a, b) => {
-        const periods = { Sáng: 1, Trưa: 2, Chiều: 3, Tối: 4 };
-        return periods[a.period] - periods[b.period];
+        // Helper function to get sort value for periods
+        const getPeriodSortValue = (period, customTime) => {
+          if (period === "custom" && customTime) {
+            const [hours, minutes] = customTime.split(":").map(Number);
+            return hours * 60 + minutes; // Convert to minutes for sorting
+          }
+          const periods = { Sáng: 480, Trưa: 720, Chiều: 1020, Tối: 1200 }; // in minutes
+          return periods[period] || 999999;
+        };
+
+        return (
+          getPeriodSortValue(a.period, a.customTime) -
+          getPeriodSortValue(b.period, b.customTime)
+        );
       });
   }
 
@@ -443,16 +497,30 @@ class DataManager {
       const scheduleDate = new Date(schedule.date);
       const isToday = scheduleDate.toDateString() === now.toDateString();
 
-      // Check if it's time for reminder based on period
+      // Check if it's time for reminder based on period or custom time
       const currentHour = now.getHours();
-      const periodHours = {
-        Sáng: 7,
-        Trưa: 12,
-        Chiều: 17,
-        Tối: 20,
-      };
+      const currentMinute = now.getMinutes();
 
-      return isToday && currentHour >= periodHours[schedule.period];
+      let targetHour,
+        targetMinute = 0;
+
+      if (schedule.period === "custom" && schedule.customTime) {
+        [targetHour, targetMinute] = schedule.customTime.split(":").map(Number);
+      } else {
+        const periodHours = {
+          Sáng: 7,
+          Trưa: 12,
+          Chiều: 17,
+          Tối: 20,
+        };
+        targetHour = periodHours[schedule.period] || 9;
+      }
+
+      // Check if current time >= target time
+      const currentTotalMinutes = currentHour * 60 + currentMinute;
+      const targetTotalMinutes = targetHour * 60 + targetMinute;
+
+      return isToday && currentTotalMinutes >= targetTotalMinutes;
     });
   }
 }

@@ -7,6 +7,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const DataManager = require("./models/dataManager");
 const EraIotClient = require("./utils/eraIotClient");
+const AlertScheduler = require("./utils/alertScheduler");
 const {
   validateScheduleData,
   validateUserData,
@@ -27,16 +28,17 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// Initialize DataManager and E-Ra IoT Client
+// Initialize DataManager, E-Ra IoT Client và AlertScheduler
 const dataManager = new DataManager();
 const eraIotClient = new EraIotClient();
+const alertScheduler = new AlertScheduler(dataManager);
 
 // Test E-Ra IoT connection on startup
 eraIotClient
   .testConnection()
   .then((success) => {
     if (success) {
-      console.log("✅ [E-Ra IoT] Connection established successfully");
+      console.log(" [E-Ra IoT] Connection established successfully");
     } else {
       console.warn(
         "⚠️ [E-Ra IoT] Connection test failed - IoT features may not work properly"
@@ -92,7 +94,7 @@ const upload = multer({
 app.use(express.static("public"));
 app.use(express.json());
 
-console.log("🚀 Khởi động máy chủ Tủ Thuốc AIoT (Production Mode)...");
+console.log("Khởi động máy chủ Tủ Thuốc AIoT (Production Mode)...");
 
 // Global variables
 let connectedClients = new Set();
@@ -125,67 +127,21 @@ io.on("connection", async (socket) => {
   try {
     // 1. Send initial data on connection
     const data = await dataManager.loadData();
+    console.log(`[InitialData] Sending data to client ${socket.id}:`, {
+      users: data.users?.length || 0,
+      medicines: data.medicines?.length || 0,
+      schedules: data.schedules?.length || 0,
+      alerts: data.alerts?.length || 0
+    });
     socket.emit("initialData", data);
-    logAction("Gửi dữ liệu ban đầu", `Client: ${socket.id}`);
+    logAction("Gửi dữ liệu ban đầu", `Client: ${socket.id} | Users: ${data.users?.length || 0} | Medicines: ${data.medicines?.length || 0}`);
   } catch (error) {
     handleError(socket, error, "Initial data load");
   }
 
-  // 2. Handle reminder requests
-  socket.on("sendReminder", async (requestData) => {
-    try {
-      logAction("Yêu cầu nhắc nhở", `User: ${requestData.user}`);
-
-      // Trigger E-Ra IoT device to turn on LED and buzzer
-      const iotSuccess = await eraIotClient.sendMedicationReminder(30000); // 30 second alert
-
-      if (iotSuccess) {
-        socket.emit("actionResponse", {
-          success: true,
-          message: `Đã gửi lệnh nhắc nhở tới tủ thuốc cho ${requestData.user}! LED và còi đã được kích hoạt.`,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Add success alert
-        await dataManager.addAlert({
-          type: "success",
-          message: `✅ Đã gửi nhắc nhở IoT thành công cho ${requestData.user} - LED và còi đang hoạt động`,
-          priority: "normal",
-        });
-      } else {
-        socket.emit("actionResponse", {
-          success: false,
-          message: `Lỗi kết nối tủ thuốc! Không thể gửi nhắc nhở cho ${requestData.user}. Vui lòng kiểm tra kết nối mạng và thử lại.`,
-          timestamp: new Date().toISOString(),
-        });
-
-        // Add error alert
-        await dataManager.addAlert({
-          type: "warning",
-          message: `⚠️ Lỗi kết nối E-Ra IoT! Không thể gửi nhắc nhở cho ${requestData.user}. Hệ thống sẽ thử kết nối lại.`,
-          priority: "high",
-        });
-      }
-
-      // Broadcast updated alerts
-      const updatedData = await dataManager.loadData();
-      broadcastToAll("alertsUpdated", updatedData.alerts);
-    } catch (error) {
-      handleError(socket, error, "Send reminder");
-
-      // Add system error alert
-      await dataManager.addAlert({
-        type: "danger",
-        message: `❌ Lỗi hệ thống khi gửi nhắc nhở cho ${requestData.user}: ${error.message}`,
-        priority: "high",
-      });
-
-      const updatedData = await dataManager.loadData();
-      broadcastToAll("alertsUpdated", updatedData.alerts);
-    }
-  });
-
-  // 3. Handle new schedule creation with weekdays and usage duration
+  // === ESSENTIAL SOCKET EVENTS ONLY ===
+  
+  // 2. Handle new schedule creation with automatic alerts
   socket.on("saveNewSchedule", async (scheduleData) => {
     try {
       // Sanitize inputs
@@ -193,13 +149,16 @@ io.on("connection", async (socket) => {
         userId: parseInt(scheduleData.userId),
         weekdays: scheduleData.weekdays || [],
         period: sanitizeInput(scheduleData.period),
+        customTime: scheduleData.customTime
+          ? sanitizeInput(scheduleData.customTime)
+          : null,
         usageDuration: parseInt(scheduleData.usageDuration),
         medicines: scheduleData.medicines || [],
         notes: sanitizeInput(scheduleData.notes),
       };
 
       logAction(
-        "Tạo lịch mới với thứ trong tuần",
+        "Tạo lịch mới với alert tự động",
         JSON.stringify(sanitizedData)
       );
 
@@ -229,6 +188,7 @@ io.on("connection", async (socket) => {
               medicineCategory: medicine.category,
               date: currentDate.toISOString().split("T")[0],
               period: sanitizedData.period,
+              customTime: sanitizedData.customTime,
               notes: sanitizedData.notes,
               usageDuration: sanitizedData.usageDuration,
               weekdays: sanitizedData.weekdays,
@@ -240,39 +200,39 @@ io.on("connection", async (socket) => {
         }
       }
 
+      // Add schedules to AlertScheduler for automatic monitoring
+      for (const schedule of createdSchedules) {
+        await alertScheduler.addSchedule(schedule);
+      }
+
       // Get updated schedules and broadcast
       const updatedData = await dataManager.loadData();
       broadcastToAll("scheduleUpdated", updatedData.schedules);
 
       socket.emit("actionResponse", {
         success: true,
-        message: `Đã tạo thành công ${createdSchedules.length} lịch uống thuốc!`,
+        message: `Đã tạo thành công ${createdSchedules.length} lịch uống thuốc với alert tự động!`,
         data: createdSchedules,
+        alertsScheduled: createdSchedules.length
       });
     } catch (error) {
       handleError(socket, error, "Save schedule");
     }
   });
 
-  // 4. Handle user management with avatar
+  // 3. Handle user management
   socket.on("saveNewUser", async (userData) => {
     try {
-      // Sanitize inputs
       const sanitizedData = {
         name: sanitizeInput(userData.name),
         avatar:
           userData.avatar || `https://i.pravatar.cc/150?img=${Date.now() % 70}`,
       };
 
-      // Validate data
       validateUserData(sanitizedData);
-
       logAction("Tạo người dùng mới", sanitizedData.name);
 
-      // Save to database
       const newUser = await dataManager.addUser(sanitizedData);
-
-      // Get updated users and broadcast
       const updatedData = await dataManager.loadData();
       broadcastToAll("userListUpdated", updatedData.users);
 
@@ -286,19 +246,15 @@ io.on("connection", async (socket) => {
     }
   });
 
-  // 5. Handle user deletion
+  // 4. Handle user deletion
   socket.on("deleteUser", async (requestData) => {
     try {
       const userId = parseInt(requestData.id);
       logAction("Xóa người dùng", `ID: ${userId}`);
 
       await dataManager.deleteUser(userId);
-
-      // Get updated data and broadcast
       const updatedData = await dataManager.loadData();
       broadcastToAll("userListUpdated", updatedData.users);
-      broadcastToAll("scheduleUpdated", updatedData.schedules);
-      broadcastToAll("statsUpdate", updatedData.statistics);
 
       socket.emit("actionResponse", {
         success: true,
@@ -309,10 +265,9 @@ io.on("connection", async (socket) => {
     }
   });
 
-  // 6. Handle medicine management
+  // 5. Handle medicine management
   socket.on("saveNewMedicine", async (medicineData) => {
     try {
-      // Sanitize inputs
       const sanitizedData = {
         name: sanitizeInput(medicineData.name),
         dosage: sanitizeInput(medicineData.dosage),
@@ -323,15 +278,10 @@ io.on("connection", async (socket) => {
         minThreshold: parseInt(medicineData.minThreshold) || 5,
       };
 
-      // Validate data
       validateMedicineData(sanitizedData);
-
       logAction("Tạo thuốc mới", sanitizedData.name);
 
-      // Save to database
       const newMedicine = await dataManager.addMedicine(sanitizedData);
-
-      // Get updated medicines and broadcast
       const updatedData = await dataManager.loadData();
       broadcastToAll("medicinesUpdated", updatedData.medicines);
 
@@ -342,158 +292,6 @@ io.on("connection", async (socket) => {
       });
     } catch (error) {
       handleError(socket, error, "Save medicine");
-    }
-  });
-
-  // 7. Handle schedule status updates (taken/missed)
-  socket.on("updateScheduleStatus", async (statusData) => {
-    try {
-      const { scheduleId, status } = statusData;
-      const actualTime = status === "taken" ? new Date().toISOString() : null;
-
-      logAction(
-        "Cập nhật trạng thái lịch",
-        `ID: ${scheduleId}, Status: ${status}`
-      );
-
-      const updatedSchedule = await dataManager.updateScheduleStatus(
-        scheduleId,
-        status,
-        actualTime
-      );
-
-      if (updatedSchedule) {
-        // Get updated data and broadcast
-        const updatedData = await dataManager.loadData();
-        broadcastToAll("scheduleUpdated", updatedData.schedules);
-        broadcastToAll("timelineUpdated", updatedData.timeline);
-        broadcastToAll("statsUpdate", updatedData.statistics);
-
-        socket.emit("actionResponse", {
-          success: true,
-          message: `Trạng thái lịch uống thuốc đã được cập nhật: ${status}`,
-          data: updatedSchedule,
-        });
-      }
-    } catch (error) {
-      handleError(socket, error, "Update schedule status");
-    }
-  });
-
-  // 8. Handle IoT sensor data updates
-  socket.on("updateSensorData", async (sensorData) => {
-    try {
-      logAction("Cập nhật dữ liệu cảm biến", JSON.stringify(sensorData));
-
-      const updatedSystem = await dataManager.updateSystemStatus({
-        temperature: parseFloat(sensorData.temperature),
-        humidity: parseFloat(sensorData.humidity),
-        status: sensorData.status || "Online",
-      });
-
-      broadcastToAll("iotStatusUpdate", updatedSystem);
-    } catch (error) {
-      handleError(socket, error, "Update sensor data");
-    }
-  });
-
-  // 9. Handle alert management
-  socket.on("markAlertAsRead", async (alertData) => {
-    try {
-      const alertId = parseInt(alertData.id);
-      await dataManager.markAlertAsRead(alertId);
-
-      const updatedData = await dataManager.loadData();
-      broadcastToAll("alertsUpdated", updatedData.alerts);
-    } catch (error) {
-      handleError(socket, error, "Mark alert as read");
-    }
-  });
-
-  // 10. Handle disconnect
-  // Enhanced device control socket events
-  socket.on("stopIoTAlert", async (requestData) => {
-    try {
-      logAction(
-        "Dừng cảnh báo IoT",
-        `User request: ${requestData.user || "Unknown"}`
-      );
-
-      const stopSuccess = await eraIotClient.turnOffAlert();
-
-      if (stopSuccess) {
-        socket.emit("actionResponse", {
-          success: true,
-          message: "Đã dừng cảnh báo LED và còi trên tủ thuốc!",
-          timestamp: new Date().toISOString(),
-        });
-
-        await dataManager.addAlert({
-          type: "info",
-          message: "🔕 Đã dừng cảnh báo IoT theo yêu cầu người dùng",
-          priority: "normal",
-        });
-      } else {
-        socket.emit("actionResponse", {
-          success: false,
-          message: "Lỗi kết nối! Không thể dừng cảnh báo tủ thuốc.",
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      const updatedData = await dataManager.loadData();
-      broadcastToAll("alertsUpdated", updatedData.alerts);
-    } catch (error) {
-      handleError(socket, error, "Stop IoT alert");
-    }
-  });
-
-  // IoT test connection
-  socket.on("testIoTConnection", async () => {
-    try {
-      logAction("Kiểm tra kết nối IoT", "User request");
-
-      const testSuccess = await eraIotClient.testConnection();
-      const config = eraIotClient.getConfig();
-
-      socket.emit("iotConnectionTest", {
-        success: testSuccess,
-        message: testSuccess
-          ? "Kết nối E-Ra IoT Platform thành công! Tủ thuốc hoạt động bình thường."
-          : "Lỗi kết nối E-Ra IoT Platform! Kiểm tra mạng internet và trạng thái server E-Ra.",
-        config: config,
-        timestamp: new Date().toISOString(),
-        details: testSuccess
-          ? "API endpoint có thể truy cập, IoT features đang hoạt động"
-          : "Không thể kết nối tới server E-Ra, IoT features bị tạm ngưng",
-      });
-
-      await dataManager.addAlert({
-        type: testSuccess ? "success" : "warning",
-        message: testSuccess
-          ? "✅ Test kết nối E-Ra IoT Platform thành công - Hệ thống hoạt động bình thường"
-          : "⚠️ Test kết nối E-Ra IoT Platform thất bại - Kiểm tra kết nối mạng",
-        priority: testSuccess ? "normal" : "high",
-      });
-
-      const updatedData = await dataManager.loadData();
-      broadcastToAll("alertsUpdated", updatedData.alerts);
-    } catch (error) {
-      handleError(socket, error, "Test IoT connection");
-
-      // Add system error for test failure
-      await dataManager.addAlert({
-        type: "danger",
-        message: `❌ Lỗi hệ thống khi test IoT connection: ${error.message}`,
-        priority: "high",
-      });
-
-      socket.emit("iotConnectionTest", {
-        success: false,
-        message: `Lỗi hệ thống khi kiểm tra kết nối: ${error.message}`,
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      });
     }
   });
 
@@ -517,6 +315,12 @@ const checkPendingReminders = async () => {
         );
 
         if (user && medicine) {
+          // Format period display text
+          const periodDisplay =
+            schedule.period === "custom" && schedule.customTime
+              ? `${schedule.customTime}`
+              : schedule.period;
+
           // Trigger E-Ra IoT device for automatic medication reminder
           const iotSuccess = await eraIotClient.sendMedicationReminder(45000); // 45 second alert for automatic reminders
 
@@ -524,7 +328,7 @@ const checkPendingReminders = async () => {
             // Create success reminder alert
             await dataManager.addAlert({
               type: "success",
-              message: `🔔 Đến giờ uống thuốc! ${user.name} cần uống ${medicine.name} (${medicine.dosage}) - ${schedule.period}. Tủ thuốc đang phát cảnh báo LED + còi.`,
+              message: `🔔 Đến giờ uống thuốc! ${user.name} cần uống ${medicine.name} (${medicine.dosage}) - ${periodDisplay}. Tủ thuốc đang phát cảnh báo LED + còi.`,
               priority: "high",
             });
 
@@ -535,7 +339,7 @@ const checkPendingReminders = async () => {
             // Create warning if IoT failed but still notify
             await dataManager.addAlert({
               type: "warning",
-              message: `⏰ Đến giờ uống thuốc! ${user.name} cần uống ${medicine.name} (${medicine.dosage}) - ${schedule.period}. ⚠️ Lỗi kết nối tủ thuốc IoT!`,
+              message: `⏰ Đến giờ uống thuốc! ${user.name} cần uống ${medicine.name} (${medicine.dosage}) - ${periodDisplay}. ⚠️ Lỗi kết nối tủ thuốc IoT!`,
               priority: "high",
             });
 
@@ -558,7 +362,7 @@ const checkPendingReminders = async () => {
 
           logAction(
             "Tự động nhắc nhở",
-            `${user.name} - ${medicine.name} - ${schedule.period} - IoT: ${
+            `${user.name} - ${medicine.name} - ${periodDisplay} - IoT: ${
               iotSuccess ? "Success" : "Failed"
             }`
           );
@@ -689,6 +493,24 @@ app.get("/api/data", async (req, res) => {
   }
 });
 
+// API để monitor alert scheduler status
+app.get("/api/alerts/status", (req, res) => {
+  try {
+    const status = alertScheduler.getStatus();
+    res.json({
+      success: true,
+      alertScheduler: status,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 // === ERROR HANDLING ===
 process.on("uncaughtException", (error) => {
   console.error("Uncaught Exception:", error);
@@ -701,6 +523,12 @@ process.on("unhandledRejection", (error) => {
 // === GRACEFUL SHUTDOWN ===
 process.on("SIGTERM", async () => {
   console.log("📴 Đang tắt server...");
+  
+  // Cleanup AlertScheduler
+  if (alertScheduler) {
+    alertScheduler.cleanup();
+  }
+  
   server.close(() => {
     console.log("✅ Server đã tắt thành công");
     process.exit(0);
@@ -709,14 +537,34 @@ process.on("SIGTERM", async () => {
 
 // === START SERVER ===
 server.listen(PORT, async () => {
-  console.log(`🚀 Tủ Thuốc AIoT Server đang chạy tại http://localhost:${PORT}`);
-  console.log(`📊 Connected clients: ${connectedClients.size}`);
-  console.log(`🏥 System ready for medicine management`);
+  console.log(` Tủ Thuốc AIoT Server đang chạy tại http://localhost:${PORT}`);
+  console.log(` Connected clients: ${connectedClients.size}`);
+  console.log(` System ready for medicine management`);
 
-  // Initialize data on startup
+  // Initialize data on startup và verify data
   try {
-    await dataManager.loadData();
-    console.log("✅ Dữ liệu hệ thống đã được khởi tạo");
+    const initialData = await dataManager.loadData();
+    console.log("📊 Dữ liệu hệ thống đã được khởi tạo:");
+    console.log(`   👥 Users: ${initialData.users?.length || 0}`);
+    console.log(`   💊 Medicines: ${initialData.medicines?.length || 0}`);
+    console.log(`   📅 Schedules: ${initialData.schedules?.length || 0}`);
+    console.log(`   🚨 Alerts: ${initialData.alerts?.length || 0}`);
+    
+    // Log user details if any exist
+    if (initialData.users && initialData.users.length > 0) {
+      console.log("👥 Existing users:");
+      initialData.users.forEach((user, index) => {
+        console.log(`   ${index + 1}. ${user.name} (ID: ${user.id}) - Created: ${user.createdAt}`);
+      });
+    }
+    
+    // Initialize AlertScheduler
+    console.log("🔔 Initializing automatic alert system...");
+    await alertScheduler.initialize();
+    const schedulerStatus = alertScheduler.getStatus();
+    console.log(`📋 AlertScheduler: ${schedulerStatus.activeAlerts} active alerts scheduled`);
+    
+    console.log("✅ Server initialization completed successfully!");
   } catch (error) {
     console.error("❌ Lỗi khởi tạo dữ liệu:", error);
   }

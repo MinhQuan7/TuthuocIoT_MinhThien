@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.0.0",
-    "lastUpdate": "2025-11-14T00:45:10.387Z",
+    "lastUpdate": "2025-11-14T04:17:00.467Z",
     "created": "2025-11-13T19:36:45.574Z"
   },
   "system": {
@@ -31,25 +31,80 @@
       "avatar": "/assets/downloads/profile/avatar-1763081109159-517512983.jpg",
       "createdAt": "2025-11-14T00:45:10.387Z",
       "isActive": true
+    },
+    {
+      "id": 1763081725805,
+      "name": "Ông Chín",
+      "avatar": "/assets/downloads/profile/avatar-1763081724828-580027832.jpg",
+      "createdAt": "2025-11-14T00:55:25.805Z",
+      "isActive": true
+    },
+    {
+      "id": 1763091728550,
+      "name": "Thiện",
+      "avatar": "/assets/downloads/profile/avatar-1763091727312-221210836.avif",
+      "createdAt": "2025-11-14T03:42:08.550Z",
+      "isActive": true
     }
   ],
-  "medicines": [],
-  "schedules": [],
+  "medicines": [
+    {
+      "id": 1763093747884.2532,
+      "name": "Captopril 25mg",
+      "category": "cold-flu",
+      "dosage": "Theo chỉ định bác sỹ",
+      "instructions": "",
+      "quantity": 30,
+      "minThreshold": 5,
+      "expiryDate": null,
+      "createdAt": "2025-11-14T04:15:47.573Z"
+    }
+  ],
+  "schedules": [
+    {
+      "id": 1763093748081,
+      "userId": 1763063989722,
+      "medicineId": 1763093747884.2532,
+      "date": "2025-11-14",
+      "period": "custom",
+      "customTime": "11:17",
+      "status": "pending",
+      "createdAt": "2025-11-14T04:15:47.574Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        5
+      ],
+      "usageDuration": 1,
+      "endDate": null
+    }
+  ],
   "timeline": [],
-  "alerts": [],
+  "alerts": [
+    {
+      "id": 1763093820467,
+      "type": "success",
+      "message": "🔔 Alert tự động: Ông Quân cần uống Captopril 25mg - IoT đã được kích hoạt!",
+      "createdAt": "2025-11-14T04:17:00.467Z",
+      "isRead": false,
+      "priority": "high"
+    }
+  ],
   "reminders": [],
   "inventory": {
-    "totalMedicines": 0,
+    "totalMedicines": 1,
     "lowStock": [],
     "expiringSoon": [],
     "expired": [],
-    "lastUpdated": "2025-11-13T19:59:49.722Z"
+    "lastUpdated": "2025-11-14T04:15:47.574Z"
   },
   "statistics": {
     "compliance": {
       "user1763063989722": 0,
       "user1763064047460": 0,
-      "user1763081110387": 0
+      "user1763081110387": 0,
+      "user1763081725805": 0,
+      "user1763091728550": 0
     },
     "labels": [
       "T2",
@@ -80,6 +135,24 @@
         0
       ],
       "user1763081110387": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "user1763081725805": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "user1763091728550": [
         0,
         0,
         0,

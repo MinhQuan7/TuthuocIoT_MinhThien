@@ -26,6 +26,8 @@ document.addEventListener("DOMContentLoaded", function () {
     "medicine-select-dropdown"
   );
   const periodSelect = document.getElementById("period-select");
+  const customTimeContainer = document.getElementById("custom-time-container");
+  const customTimeInput = document.getElementById("custom-time-input");
 
   // Trang Thống kê
   const chartCanvas = document.getElementById("complianceChart");
@@ -200,8 +202,17 @@ document.addEventListener("DOMContentLoaded", function () {
     return `${year}-${month}-${day}`;
   };
 
-  // *** CẬP NHẬT: Thêm đối tượng để sắp xếp Buổi ***
-  const periodOrder = { Sáng: 1, Trưa: 2, Chiều: 3, Tối: 4 };
+  // *** CẬP NHẬT: Thêm đối tượng để sắp xếp Buổi với hỗ trợ custom time ***
+  function getPeriodSortValue(period, customTime) {
+    if (period === "custom" && customTime) {
+      // Convert HH:MM to minutes for sorting
+      const [hours, minutes] = customTime.split(":").map(Number);
+      return hours * 60 + minutes;
+    }
+
+    const periodOrder = { Sáng: 480, Trưa: 720, Chiều: 1020, Tối: 1200 }; // in minutes
+    return periodOrder[period] || 999999;
+  }
 
   // === LOGIC ĐIỀU HƯỚNG (NAVIGATION) ===
   const navLinks = document.querySelectorAll(".nav-link");
@@ -565,6 +576,63 @@ document.addEventListener("DOMContentLoaded", function () {
   // Khởi tạo các tính năng mới
   initAvatarUpload();
   initMedicineCategory();
+  initCustomTimeInput();
+
+  // === Hàm xử lý custom time input ===
+  function initCustomTimeInput() {
+    if (periodSelect && customTimeContainer) {
+      periodSelect.addEventListener("change", function () {
+        const selectedValue = this.value;
+
+        if (selectedValue === "custom") {
+          customTimeContainer.classList.remove("hidden");
+          if (customTimeInput) {
+            customTimeInput.required = true;
+
+            // Set default time based on current hour
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const timeString = `${String(currentHour).padStart(
+              2,
+              "0"
+            )}:${String(currentMinute).padStart(2, "0")}`;
+            customTimeInput.value = timeString;
+          }
+        } else {
+          customTimeContainer.classList.add("hidden");
+          if (customTimeInput) {
+            customTimeInput.required = false;
+            customTimeInput.value = "";
+          }
+        }
+      });
+    }
+  }
+
+  // === Hàm tiện ích định dạng thời gian ===
+  function formatCustomPeriod(period, customTime) {
+    if (period === "custom" && customTime) {
+      return `🕐 ${customTime}`;
+    }
+    return period;
+  }
+
+  function getPeriodDisplayText(period, customTime) {
+    if (period === "custom" && customTime) {
+      return `Tùy chỉnh (${customTime})`;
+    }
+
+    const periodTexts = {
+      Sáng: "Sáng (khoảng 8:00)",
+      Trưa: "Trưa (khoảng 12:00)",
+      Chiều: "Chiều (khoảng 17:00)",
+      Tối: "Tối (khoảng 20:00)",
+    };
+
+    return periodTexts[period] || period;
+  }
+  initCustomTimeInput();
 
   // === Các hàm render HTML ===
   function createAlertHTML(alert) {
@@ -596,14 +664,14 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    // Sắp xếp lịch theo ngày và buổi
+    // Sắp xếp lịch theo ngày và buổi (với custom time)
     schedules.sort((a, b) => {
       const dateA = a.date || "0000-00-00";
       const dateB = b.date || "0000-00-00";
       if (dateA !== dateB) return dateA.localeCompare(dateB);
 
-      const periodA = periodOrder[a.period] || 99;
-      const periodB = periodOrder[b.period] || 99;
+      const periodA = getPeriodSortValue(a.period, a.customTime);
+      const periodB = getPeriodSortValue(b.period, b.customTime);
       return periodA - periodB;
     });
 
@@ -635,7 +703,10 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="schedule-main">
             <div class="schedule-time">
               <strong class="date">${displayDate}</strong>
-              <strong class="period">${item.period}</strong>
+              <strong class="period">${formatCustomPeriod(
+                item.period,
+                item.customTime
+              )}</strong>
             </div>
             <div class="schedule-details">
               <div class="user-info">👤 ${user?.name || "Unknown User"}</div>
@@ -685,22 +756,25 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // *** CẬP NHẬT: Hiển thị Buổi trên Timeline ***
+  // *** CẬP NHẬT: Hiển thị Buổi trên Timeline với hỗ trợ custom time ***
   function renderUpcomingSchedule(schedules) {
     if (!timelineList) return;
 
-    // Sắp xếp lịch theo buổi
-    schedules.sort(
-      (a, b) => (periodOrder[a.period] || 99) - (periodOrder[b.period] || 99)
-    );
+    // Sắp xếp lịch theo buổi với custom time support
+    schedules.sort((a, b) => {
+      const periodA = getPeriodSortValue(a.period, a.customTime);
+      const periodB = getPeriodSortValue(b.period, b.customTime);
+      return periodA - periodB;
+    });
 
     const todayString = getTodayString();
 
     schedules.forEach((item) => {
       if (item.date === todayString) {
+        const displayPeriod = formatCustomPeriod(item.period, item.customTime);
         timelineList.innerHTML += `
                     <li class="timeline-item" data-status="pending" data-id="${item.id}" data-user="${item.user}">
-                        <div class="timeline-time">${item.period}</div> <div class="timeline-content">
+                        <div class="timeline-time">${displayPeriod}</div> <div class="timeline-content">
                             <div class="user">${item.user}</div>
                             <div class="medication">${item.medicine}</div>
                             <span class="timeline-status status-pending">Sắp tới</span>
@@ -717,42 +791,65 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // (Giữ nguyên hàm renderUserList)
   function renderUserList(users) {
-    if (!userList) return;
+    console.log("🔄 Rendering user list with data:", users);
+    if (!userList) {
+      console.warn("⚠️ userList element not found");
+      return;
+    }
+    
     userList.innerHTML = "";
+    
     if (!users || users.length === 0) {
-      userList.innerHTML = "<li>Không có người dùng nào.</li>";
+      console.log("📝 No users found, showing empty message");
+      userList.innerHTML = "<li class='no-data'>Không có người dùng nào.</li>";
       return;
     }
 
-    users.forEach((user) => {
+    console.log(`👥 Rendering ${users.length} users`);
+    users.forEach((user, index) => {
+      console.log(`Rendering user ${index + 1}:`, user);
       userList.innerHTML += `
-                <li class="user-list-item">
+                <li class="user-list-item" data-user-id="${user.id}">
                     <div class="user-list-info">
-                        <img src="${user.avatar}" alt="Avatar" class="user-avatar">
-                        <span class="user-name">${user.name}</span>
+                        <img src="${user.avatar}" alt="Avatar" class="user-avatar" onerror="this.src='https://i.pravatar.cc/150?img=${user.id % 70}'">
+                        <div class="user-details">
+                          <span class="user-name">${user.name}</span>
+                          <small class="user-created">Tạo: ${formatDate(user.createdAt)}</small>
+                        </div>
                     </div>
-                    <button class="btn-delete" data-id="${user.id}">Xóa</button>
+                    <button class="btn-delete" data-id="${user.id}" title="Xóa người dùng">Xóa</button>
                 </li>
             `;
     });
+    
+    console.log("✅ User list rendered successfully");
   }
 
   // (Giữ nguyên hàm renderUserDropdown)
   function renderUserDropdown(users) {
-    if (!userSelectDropdown) return;
-    userSelectDropdown.innerHTML =
-      "<option value=''>Chọn người dùng...</option>";
+    console.log("🔄 Rendering user dropdown with data:", users);
+    if (!userSelectDropdown) {
+      console.warn("⚠️ userSelectDropdown element not found");
+      return;
+    }
+    
+    userSelectDropdown.innerHTML = "<option value=''>Chọn người dùng...</option>";
+    
     if (!users || users.length === 0) {
-      userSelectDropdown.innerHTML +=
-        "<option disabled>Chưa có người dùng</option>";
+      console.log("📝 No users found for dropdown");
+      userSelectDropdown.innerHTML += "<option disabled>Chưa có người dùng</option>";
       return;
     }
 
-    users.forEach((user) => {
+    console.log(`👥 Adding ${users.length} users to dropdown`);
+    users.forEach((user, index) => {
+      console.log(`Adding user ${index + 1} to dropdown:`, user);
       userSelectDropdown.innerHTML += `
                 <option value="${user.id}">${user.name}</option>
             `;
     });
+    
+    console.log("✅ User dropdown rendered successfully");
   }
 
   // Medicine inventory dashboard
@@ -1085,32 +1182,54 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (alertList) {
       alertList.innerHTML = "";
-      data.alerts.forEach((alert) => {
-        alertList.innerHTML += createAlertHTML(alert);
-      });
+      if (data.alerts && data.alerts.length > 0) {
+        data.alerts.forEach((alert) => {
+          alertList.innerHTML += createAlertHTML(alert);
+        });
+      } else {
+        alertList.innerHTML = `<li class="no-alerts"><span class="icon">✅</span><div>Không có cảnh báo nào!</div></li>`;
+      }
     }
 
     if (timelineList) {
       timelineList.innerHTML = "";
-      data.timeline
-        .slice()
-        .reverse()
-        .forEach((event) => {
-          timelineList.insertAdjacentHTML(
-            "afterbegin",
-            createTimelineHTML(event)
-          );
-        });
-      renderUpcomingSchedule(data.fullSchedule);
+      if (data.timeline && data.timeline.length > 0) {
+        data.timeline
+          .slice()
+          .reverse()
+          .forEach((event) => {
+            timelineList.insertAdjacentHTML(
+              "afterbegin",
+              createTimelineHTML(event)
+            );
+          });
+      }
+      if (data.fullSchedule) {
+        renderUpcomingSchedule(data.fullSchedule);
+      }
     }
 
-    if (statUser1)
-      statUser1.textContent = `${data.statistics.compliance.user1}%`;
-    if (statBar1) statBar1.style.width = `${data.statistics.compliance.user1}%`;
-    if (statUser2)
-      statUser2.textContent = `${data.statistics.compliance.user2}%`;
-    if (statBar2) statBar2.style.width = `${data.statistics.compliance.user2}%`;
+    // Fix statistics display
+    if (data.statistics && data.statistics.compliance) {
+      const userKeys = Object.keys(data.statistics.compliance);
+      if (userKeys.length >= 1 && statUser1) {
+        const user1Stats = data.statistics.compliance[userKeys[0]] || 0;
+        statUser1.textContent = `${user1Stats}%`;
+        if (statBar1) statBar1.style.width = `${user1Stats}%`;
+      }
+      if (userKeys.length >= 2 && statUser2) {
+        const user2Stats = data.statistics.compliance[userKeys[1]] || 0;
+        statUser2.textContent = `${user2Stats}%`;
+        if (statBar2) statBar2.style.width = `${user2Stats}%`;
+      }
+    }
 
+    // Render all components với logging để debug
+    console.log("🔄 Rendering initial data components...");
+    console.log("📊 Users data:", data.users);
+    console.log("💊 Medicines data:", data.medicines);
+    console.log("📅 Schedules data:", data.schedules);
+    
     renderScheduleList(data.schedules || []);
     renderUserList(data.users || []);
     renderUserDropdown(data.users || []);
@@ -1118,6 +1237,22 @@ document.addEventListener("DOMContentLoaded", function () {
     renderMedicineDropdown(data.medicines || []);
     renderInventoryDashboard(data.inventory, data.medicines || []);
     renderStatisticsChart(data.statistics);
+
+    // Update UI counters
+    const userCount = document.getElementById("user-count");
+    if (userCount) userCount.textContent = (data.users || []).length;
+
+    const medicineCount = document.getElementById("medicine-count");
+    if (medicineCount) medicineCount.textContent = (data.medicines || []).length;
+
+    const alertCount = document.getElementById("alert-count");
+    if (alertCount) {
+      const unreadAlerts = (data.alerts || []).filter(alert => !alert.isRead);
+      alertCount.textContent = unreadAlerts.length;
+    }
+
+    console.log("✅ Initial data rendering completed!");
+    showNotification("🎯 Hệ thống đã khởi động thành công!", "success", 3000);
   });
 
   // Enhanced IoT status updates with visual feedback
@@ -1635,10 +1770,21 @@ document.addEventListener("DOMContentLoaded", function () {
         userId: parseInt(formData.get("user")),
         weekdays: selectedWeekdays,
         period: formData.get("period"),
+        customTime: formData.get("customTime") || null,
         usageDuration: parseInt(formData.get("usageDuration")),
         medicines: selectedMedicines,
         notes: formData.get("notes") || "",
       };
+
+      // Validation for custom time
+      if (scheduleData.period === "custom" && !scheduleData.customTime) {
+        showNotification("⚠️ Vui lòng nhập thời gian tùy chỉnh!", "error");
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.innerHTML = "<span>✓ Lưu lịch uống thuốc</span>";
+        }
+        return;
+      }
 
       if (
         !scheduleData.userId ||

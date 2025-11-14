@@ -19,14 +19,24 @@ const formatDateTime = (date) => {
   });
 };
 
-const getPeriodTime = (period) => {
+const getPeriodTime = (period, customTime = null) => {
+  // Handle custom time format
+  if (period === "custom" && customTime) {
+    const [hours, minutes] = customTime.split(":").map(Number);
+    return {
+      hour: hours,
+      minute: minutes || 0,
+      label: customTime,
+    };
+  }
+
   const periods = {
-    Sáng: { hour: 7, label: "7:00 AM" },
-    Trưa: { hour: 12, label: "12:00 PM" },
-    Chiều: { hour: 17, label: "5:00 PM" },
-    Tối: { hour: 20, label: "8:00 PM" },
+    Sáng: { hour: 7, minute: 0, label: "7:00 AM" },
+    Trưa: { hour: 12, minute: 0, label: "12:00 PM" },
+    Chiều: { hour: 17, minute: 0, label: "5:00 PM" },
+    Tối: { hour: 20, minute: 0, label: "8:00 PM" },
   };
-  return periods[period] || { hour: 9, label: "9:00 AM" };
+  return periods[period] || { hour: 9, minute: 0, label: "9:00 AM" };
 };
 
 const isTimeForReminder = (schedule) => {
@@ -38,9 +48,9 @@ const isTimeForReminder = (schedule) => {
     return false;
   }
 
-  const periodTime = getPeriodTime(schedule.period);
+  const periodTime = getPeriodTime(schedule.period, schedule.customTime);
   const reminderTime = new Date(scheduleDate);
-  reminderTime.setHours(periodTime.hour, 0, 0, 0);
+  reminderTime.setHours(periodTime.hour, periodTime.minute || 0, 0, 0);
 
   // Remind 15 minutes before the scheduled time
   const reminderWindow = new Date(reminderTime.getTime() - 15 * 60 * 1000);
@@ -60,11 +70,23 @@ const validateScheduleData = (data) => {
     throw new Error(`Missing required fields: ${missing.join(", ")}`);
   }
 
-  const validPeriods = ["Sáng", "Trưa", "Chiều", "Tối"];
+  const validPeriods = ["Sáng", "Trưa", "Chiều", "Tối", "custom"];
   if (!validPeriods.includes(data.period)) {
     throw new Error(
       "Invalid period. Must be one of: " + validPeriods.join(", ")
     );
+  }
+
+  // Validate custom time format
+  if (data.period === "custom") {
+    if (!data.customTime) {
+      throw new Error("Custom time is required when period is 'custom'");
+    }
+
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(data.customTime)) {
+      throw new Error("Invalid custom time format. Use HH:MM format (24-hour)");
+    }
   }
 
   // Validate date format
