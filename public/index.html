@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Tủ Thuốc AIoT</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <nav class="sidebar">
+      <div>
+        <div class="sidebar-header">
+          <h2>Tủ Thuốc AIoT</h2>
+        </div>
+        <ul class="sidebar-nav">
+          <li>
+            <a href="#" class="nav-link active" data-page="page-dashboard"
+              >Tổng quan</a
+            >
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-page="page-schedule"
+              >Lịch cài đặt</a
+            >
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-page="page-stats">Thống kê</a>
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-page="page-medicines"
+              >Quản lý thuốc</a
+            >
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-page="page-users"
+              >Quản lý người dùng</a
+            >
+          </li>
+          <li>
+            <a href="#">Cài đặt</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="main-content">
+      <header>
+        <h1 id="page-title">Bảng điều khiển</h1>
+        <div class="header-info">
+          <span id="current-date-time"></span>
+        </div>
+      </header>
+
+      <main class="page-content active" id="page-dashboard">
+        <div class="dashboard-grid">
+          <section class="card status-card">
+            <div class="card-header">
+              <span>🏠 Trạng thái Tủ Thuốc</span>
+              <div class="card-header-badge">
+                <span
+                  class="status-indicator online"
+                  id="header-status-indicator"
+                ></span>
+              </div>
+            </div>
+            <div class="status-grid">
+              <div class="status-item">
+                <div class="label">Trạng thái</div>
+                <div class="value online" id="device-status">--</div>
+              </div>
+              <div class="status-item">
+                <div class="label">Kết nối</div>
+                <div class="value">Wi-Fi</div>
+              </div>
+              <div class="status-item">
+                <div class="label">Nhiệt độ</div>
+                <div class="value temp" id="device-temp">-- °C</div>
+              </div>
+              <div class="status-item">
+                <div class="label">Độ ẩm</div>
+                <div class="value humid" id="device-humidity">-- %</div>
+              </div>
+            </div>
+          </section>
+          <section class="card alerts-card">
+            <div class="card-header">
+              <span>⚠️ Cảnh báo & Tồn kho</span>
+              <div class="card-header-badge">
+                <span class="alert-count" id="alert-count">0</span>
+              </div>
+            </div>
+            <ul class="alert-list" id="alert-list">
+              <li class="no-alerts">
+                <span class="icon">✅</span>
+                <div>Không có cảnh báo nào!</div>
+              </li>
+            </ul>
+          </section>
+          <section class="card timeline-card">
+            <div class="card-header">
+              <span>🗺 Lịch nhắc nhở hôm nay</span>
+              <div class="card-header-badge">
+                <span class="timeline-count" id="timeline-count">0</span>
+              </div>
+            </div>
+            <ul class="timeline" id="timeline-list">
+              <li class="no-timeline">
+                <span class="icon">🎆</span>
+                <div>Không có hoạt động nào hôm nay!</div>
+              </li>
+            </ul>
+          </section>
+          <section class="card stats-card">
+            <div class="card-header">
+              <span>📊 Thống kê Tuân thủ (7 ngày)</span>
+              <div class="card-header-badge">
+                <span class="stats-avg" id="stats-average">--</span>
+              </div>
+            </div>
+            <div class="stats-user">
+              <div class="stats-header">
+                <span class="user-name">Ông (User 1)</span>
+                <span class="percentage" id="stat-user-1">--%</span>
+              </div>
+              <div class="progress-bar">
+                <div
+                  class="progress-bar-inner"
+                  id="stat-bar-1"
+                  style="width: 0%"
+                ></div>
+              </div>
+            </div>
+            <div class="stats-user">
+              <div class="stats-header">
+                <span class="user-name">Bà (User 2)</span>
+                <span class="percentage" id="stat-user-2">--%</span>
+              </div>
+              <div class="progress-bar">
+                <div
+                  class="progress-bar-inner low"
+                  id="stat-bar-2"
+                  style="width: 0%"
+                ></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <main class="page-content" id="page-schedule">
+        <div class="card add-schedule-card">
+          <div class="card-header">
+            <span>➕ Thêm lịch uống thuốc mới</span>
+            <div class="card-header-info">
+              <span>Tạo lịch nhắc nhở tự động</span>
+            </div>
+          </div>
+          <form id="add-schedule-form" class="schedule-form">
+            <div class="form-group">
+              <label for="user-select-dropdown">
+                <span>👤 Chọn người dùng:</span>
+              </label>
+              <select id="user-select-dropdown" name="user"></select>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="weekdays-select">
+                  <span>📅 Thứ trong tuần:</span>
+                </label>
+                <div class="weekday-selector" id="weekdays-container">
+                  <label class="weekday-item">
+                    <input type="checkbox" name="weekdays" value="1" /> T2
+                  </label>
+                  <label class="weekday-item">
+                    <input type="checkbox" name="weekdays" value="2" /> T3
+                  </label>
+                  <label class="weekday-item">
+                    <input type="checkbox" name="weekdays" value="3" /> T4
+                  </label>
+                  <label class="weekday-item">
+                    <input type="checkbox" name="weekdays" value="4" /> T5
+                  </label>
+                  <label class="weekday-item">
+                    <input type="checkbox" name="weekdays" value="5" /> T6
+                  </label>
+                  <label class="weekday-item">
+                    <input type="checkbox" name="weekdays" value="6" /> T7
+                  </label>
+                  <label class="weekday-item">
+                    <input type="checkbox" name="weekdays" value="0" /> CN
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="usage-duration">
+                  <span>⏳ Thời gian sử dụng:</span>
+                </label>
+                <div class="duration-input-group">
+                  <input
+                    type="number"
+                    id="usage-duration"
+                    name="usageDuration"
+                    min="1"
+                    max="365"
+                    placeholder="30"
+                    required
+                  />
+                  <span class="duration-unit">ngày</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="period-select">
+                <span>⏰ Buổi uống:</span>
+              </label>
+              <select id="period-select" name="period" required>
+                <option value="Sáng">Sáng (khoảng 8:00)</option>
+                <option value="Trưa">Trưa (khoảng 12:00)</option>
+                <option value="Chiều">Chiều (khoảng 17:00)</option>
+                <option value="Tối">Tối (khoảng 20:00)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="medicine-category-select">
+                <span>💊 Danh mục thuốc:</span>
+              </label>
+              <select
+                id="medicine-category-select"
+                name="medicineCategory"
+                required
+              >
+                <option value="">Chọn loại thuốc...</option>
+                <option value="pain-relief">Thuốc giảm đau</option>
+                <option value="cold-flu">Thuốc cảm cúm</option>
+                <option value="digestive">Thuốc tiêu hóa</option>
+                <option value="heart">Thuốc tim mạch</option>
+                <option value="diabetes">Thuốc tiểu đường</option>
+                <option value="blood-pressure">Thuốc huyết áp</option>
+                <option value="vitamins">Vitamin & thực phẩm chức năng</option>
+                <option value="antibiotics">Thuốc kháng sinh</option>
+                <option value="other">Thuốc khác</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="medicine-name-input">
+                <span>🏷 Tên thuốc cụ thể:</span>
+              </label>
+              <input
+                type="text"
+                id="medicine-name-input"
+                name="medicineName"
+                placeholder="Ví dụ: Paracetamol 500mg"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label>
+                <span>🏷 Thuốc đã chọn:</span>
+              </label>
+              <div
+                class="selected-medicines"
+                id="selected-medicines-container"
+              ></div>
+            </div>
+
+            <button type="submit" class="btn-submit">
+              <span>✓ Lưu lịch uống thuốc</span>
+            </button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-header">Lịch đã cài đặt (Sắp tới)</div>
+          <ul class="schedule-list" id="schedule-list"></ul>
+        </div>
+      </main>
+
+      <main class="page-content" id="page-stats">
+        <div class="card chart-card">
+          <div class="card-header">
+            <span>📈 Biểu đồ tuân thủ 7 ngày qua</span>
+            <div class="card-header-info">
+              <span>So sánh hiệu quả tuân thủ của các thành viên</span>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="complianceChart"></canvas>
+          </div>
+        </div>
+      </main>
+
+      <main class="page-content" id="page-medicines">
+        <!-- Medicine Inventory Dashboard -->
+        <div class="medicine-inventory-card">
+          <div class="card-header">
+            <span>📊 Tổng quan tồn kho thuốc</span>
+            <div class="card-header-info">
+              <span>Theo dõi số lượng và tình trạng thuốc</span>
+            </div>
+          </div>
+          <div class="inventory-grid" id="inventory-grid">
+            <!-- Inventory items will be rendered here -->
+          </div>
+        </div>
+
+        <div class="card add-medicine-card">
+          <div class="card-header">
+            <span>💊 Thêm thuốc mới</span>
+            <div class="card-header-info">
+              <span>Quản lý kho thuốc trong tủ</span>
+            </div>
+          </div>
+          <form id="add-medicine-form" class="schedule-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="medicine-name-input">
+                  <span>💊 Tên thuốc:</span>
+                </label>
+                <input
+                  type="text"
+                  id="medicine-name-input"
+                  name="medicineName"
+                  placeholder="Ví dụ: Paracetamol, Vitamin C..."
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="medicine-dosage-input">
+                  <span>⚖️ Liều lượng:</span>
+                </label>
+                <input
+                  type="text"
+                  id="medicine-dosage-input"
+                  name="dosage"
+                  placeholder="Ví dụ: 500mg, 1 viên..."
+                  required
+                />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="medicine-quantity-input">
+                  <span>📦 Số lượng:</span>
+                </label>
+                <input
+                  type="number"
+                  id="medicine-quantity-input"
+                  name="quantity"
+                  placeholder="Số viên/liều"
+                  min="0"
+                />
+              </div>
+              <div class="form-group">
+                <label for="medicine-threshold-input">
+                  <span>⚠️ Ngưỡng cảnh báo:</span>
+                </label>
+                <input
+                  type="number"
+                  id="medicine-threshold-input"
+                  name="minThreshold"
+                  placeholder="Cảnh báo khi còn X viên"
+                  min="1"
+                  value="5"
+                />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="medicine-expiry-input">
+                <span>📅 Ngày hết hạn:</span>
+              </label>
+              <input type="date" id="medicine-expiry-input" name="expiryDate" />
+            </div>
+            <div class="form-group">
+              <label for="medicine-instructions-input">
+                <span>📝 Hướng dẫn sử dụng:</span>
+              </label>
+              <textarea
+                id="medicine-instructions-input"
+                name="instructions"
+                placeholder="Ví dụ: Uống sau ăn, tránh tiếp xúc ánh nắng..."
+                rows="3"
+              ></textarea>
+            </div>
+            <button type="submit" class="btn-submit">
+              <span>✓ Lưu thuốc</span>
+            </button>
+          </form>
+        </div>
+        <div class="card medicine-list-card">
+          <div class="card-header">
+            <span>💊 Danh sách thuốc trong tủ</span>
+            <div class="card-header-badge">
+              <span class="medicine-count" id="medicine-count">0</span>
+            </div>
+          </div>
+          <ul class="medicine-list" id="medicine-list"></ul>
+        </div>
+      </main>
+
+      <main class="page-content" id="page-users">
+        <div class="card add-user-card">
+          <div class="card-header">
+            <span>👥 Thêm người dùng mới</span>
+            <div class="card-header-info">
+              <span>Quản lý thành viên gia đình</span>
+            </div>
+          </div>
+          <form id="add-user-form" class="schedule-form">
+            <div class="form-group">
+              <label for="user-name-input">
+                <span>📝 Tên người dùng:</span>
+              </label>
+              <input
+                type="text"
+                id="user-name-input"
+                name="userName"
+                placeholder="Ví dụ: Con Trai, Chị Gái..."
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="user-avatar-file">
+                <span>📷 Upload ảnh đại diện:</span>
+              </label>
+              <div class="avatar-upload-container">
+                <input
+                  type="file"
+                  id="user-avatar-file"
+                  name="avatarFile"
+                  accept="image/*"
+                  class="file-input"
+                />
+                <label for="user-avatar-file" class="file-upload-btn">
+                  <span>📁 Chọn ảnh</span>
+                </label>
+                <div class="avatar-preview hidden" id="avatar-preview">
+                  <img id="preview-image" src="" alt="Preview" />
+                  <button
+                    type="button"
+                    class="remove-avatar"
+                    id="remove-avatar"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="user-avatar-input">
+                <span>🌐 Hoặc nhập link ảnh:</span>
+              </label>
+              <input
+                type="text"
+                id="user-avatar-input"
+                name="avatarUrl"
+                placeholder="https://i.pravatar.cc/150?img=... (tùy chọn)"
+              />
+            </div>
+            <button type="submit" class="btn-submit">
+              <span>✓ Lưu người dùng</span>
+            </button>
+          </form>
+        </div>
+        <div class="card user-list-card">
+          <div class="card-header">
+            <span>👥 Danh sách người dùng hiện tại</span>
+            <div class="card-header-badge">
+              <span class="user-count" id="user-count">0</span>
+            </div>
+          </div>
+          <ul class="user-list" id="user-list"></ul>
+        </div>
+      </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+  </body>
+</html>

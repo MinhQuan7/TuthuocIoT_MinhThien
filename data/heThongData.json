@@ -1,0 +1,112 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdate": "2025-11-14T00:55:25.805Z",
+    "created": "2025-11-13T19:36:45.574Z"
+  },
+  "system": {
+    "status": "Online",
+    "temperature": 25,
+    "humidity": 65,
+    "lastSensorUpdate": "2025-11-13T19:36:45.574Z"
+  },
+  "users": [
+    {
+      "id": 1763063989722,
+      "name": "Ông Quân",
+      "avatar": "/assets/downloads/profile/avatar-1763063988530-153138098.png",
+      "createdAt": "2025-11-13T19:59:49.722Z",
+      "isActive": true
+    },
+    {
+      "id": 1763064047460,
+      "name": "Con",
+      "avatar": "/assets/downloads/profile/avatar-1763064043672-237665664.webp",
+      "createdAt": "2025-11-13T20:00:47.460Z",
+      "isActive": true
+    },
+    {
+      "id": 1763081110387,
+      "name": "Ông Tám",
+      "avatar": "/assets/downloads/profile/avatar-1763081109159-517512983.jpg",
+      "createdAt": "2025-11-14T00:45:10.387Z",
+      "isActive": true
+    },
+    {
+      "id": 1763081725805,
+      "name": "Ông Chín",
+      "avatar": "/assets/downloads/profile/avatar-1763081724828-580027832.jpg",
+      "createdAt": "2025-11-14T00:55:25.805Z",
+      "isActive": true
+    }
+  ],
+  "medicines": [],
+  "schedules": [],
+  "timeline": [],
+  "alerts": [],
+  "reminders": [],
+  "inventory": {
+    "totalMedicines": 0,
+    "lowStock": [],
+    "expiringSoon": [],
+    "expired": [],
+    "lastUpdated": "2025-11-13T19:59:49.722Z"
+  },
+  "statistics": {
+    "compliance": {
+      "user1763063989722": 0,
+      "user1763064047460": 0,
+      "user1763081110387": 0,
+      "user1763081725805": 0
+    },
+    "labels": [
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "CN"
+    ],
+    "dailyBreakdown": {
+      "user1763063989722": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "user1763064047460": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "user1763081110387": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "user1763081725805": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "weeklyUsage": {},
+    "monthlyTrends": {}
+  }
+}
