@@ -9,9 +9,9 @@ class EraIotClient {
     // E-Ra IoT Platform Configuration
     this.authToken = "Token 78072b06a81e166b8b900d95f4c2ba1234272955";
     this.baseUrl = "https://backend.eoh.io";
-    this.configId = "14332";
-    this.actionOnKey = "ee92c702-4585-4d37-8ea1-af8de18569f7";
-    this.actionOffKey = "9b9d2c99-13a1-4101-b535-fdbb96b9ec6d";
+    this.configId = "148698";
+    this.actionOnKey = "cbfe9e98-669a-4fbf-a8d2-45c59c4aef4e";
+    this.actionOffKey = "7c1ea8e2-3f7a-4db2-adcc-eeeed0576e36";
     this.initialized = true;
   }
 
