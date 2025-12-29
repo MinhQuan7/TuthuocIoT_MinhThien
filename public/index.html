@@ -6,6 +6,143 @@
     <title>Dashboard Tủ Thuốc AIoT</title>
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      /* Modal Styles */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+      .modal-content {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        max-width: 400px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      }
+      .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #1e293b;
+      }
+      .modal-body {
+        color: #64748b;
+        margin-bottom: 24px;
+        line-height: 1.5;
+      }
+      .modal-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+      }
+      .btn-modal {
+        padding: 8px 20px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+      }
+      .btn-modal-primary {
+        background: #3b82f6;
+        color: white;
+      }
+      .btn-modal-primary:hover {
+        background: #2563eb;
+      }
+      .btn-modal-secondary {
+        background: #e2e8f0;
+        color: #475569;
+      }
+      .btn-modal-secondary:hover {
+        background: #cbd5e1;
+      }
+      .hidden {
+        display: none !important;
+      }
+
+      /* Disabled Button Style */
+      .btn-submit:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
+
+      .avatar-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .avatar-preview-grid img {
+        width: 100%;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+      }
+
+      /* Camera Styles */
+      .btn-camera {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-left: 10px;
+        font-weight: 500;
+      }
+      .btn-camera:hover {
+        background-color: #2563eb;
+      }
+      #camera-interface {
+        margin-top: 15px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px;
+        background: #f8fafc;
+        text-align: center;
+      }
+      #camera-feed {
+        width: 100%;
+        max-width: 400px;
+        border-radius: 8px;
+        background: #000;
+      }
+      .camera-controls {
+        margin-top: 10px;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+      }
+      .btn-capture {
+        background-color: #10b981;
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 20px;
+        cursor: pointer;
+      }
+      .btn-close-camera {
+        background-color: #ef4444;
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 20px;
+        cursor: pointer;
+      }
+    </style>
   </head>
   <body>
     <nav class="sidebar">
@@ -52,11 +189,30 @@
         </div>
       </header>
 
+      <!-- Photo Requirement Modal -->
+      <div id="photo-requirement-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+          <h3 class="modal-title">Yêu cầu chụp ảnh</h3>
+          <div class="modal-body">
+            Để đảm bảo độ chính xác khi nhận diện khuôn mặt, bạn cần cung cấp đủ
+            <strong>5 ảnh</strong> khuôn mặt ở các góc độ khác nhau.
+          </div>
+          <div class="modal-actions">
+            <button id="modal-cancel-btn" class="btn-modal btn-modal-secondary">
+              Cancel
+            </button>
+            <button id="modal-confirm-btn" class="btn-modal btn-modal-primary">
+              Đã hiểu
+            </button>
+          </div>
+        </div>
+      </div>
+
       <main class="page-content active" id="page-dashboard">
         <div class="dashboard-grid">
           <section class="card status-card">
             <div class="card-header">
-              <span>🏠 Trạng thái Tủ Thuốc</span>
+              <span>Trạng thái Tủ Thuốc</span>
               <div class="card-header-badge">
                 <span
                   class="status-indicator online"
@@ -85,35 +241,35 @@
           </section>
           <section class="card alerts-card">
             <div class="card-header">
-              <span>⚠️ Cảnh báo & Tồn kho</span>
+              <span>Cảnh báo & Tồn kho</span>
               <div class="card-header-badge">
                 <span class="alert-count" id="alert-count">0</span>
               </div>
             </div>
             <ul class="alert-list" id="alert-list">
               <li class="no-alerts">
-                <span class="icon">✅</span>
+                <span class="icon"></span>
                 <div>Không có cảnh báo nào!</div>
               </li>
             </ul>
           </section>
           <section class="card timeline-card">
             <div class="card-header">
-              <span>🗺 Lịch nhắc nhở hôm nay</span>
+              <span>Lịch nhắc nhở hôm nay</span>
               <div class="card-header-badge">
                 <span class="timeline-count" id="timeline-count">0</span>
               </div>
             </div>
             <ul class="timeline" id="timeline-list">
               <li class="no-timeline">
-                <span class="icon">🎆</span>
+                <span class="icon"></span>
                 <div>Không có hoạt động nào hôm nay!</div>
               </li>
             </ul>
           </section>
           <section class="card stats-card">
             <div class="card-header">
-              <span>📊 Thống kê Tuân thủ (7 ngày)</span>
+              <span>Thống kê Tuân thủ (7 ngày)</span>
               <div class="card-header-badge">
                 <span class="stats-avg" id="stats-average">--</span>
               </div>
@@ -151,7 +307,7 @@
       <main class="page-content" id="page-schedule">
         <div class="card add-schedule-card">
           <div class="card-header">
-            <span>➕ Thêm lịch uống thuốc mới</span>
+            <span>Thêm lịch uống thuốc mới</span>
             <div class="card-header-info">
               <span>Tạo lịch nhắc nhở tự động</span>
             </div>
@@ -159,7 +315,7 @@
           <form id="add-schedule-form" class="schedule-form">
             <div class="form-group">
               <label for="user-select-dropdown">
-                <span>👤 Chọn người dùng:</span>
+                <span>Chọn người dùng:</span>
               </label>
               <select id="user-select-dropdown" name="user"></select>
             </div>
@@ -167,7 +323,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="weekdays-select">
-                  <span>📅 Thứ trong tuần:</span>
+                  <span>Thứ trong tuần:</span>
                 </label>
                 <div class="weekday-selector" id="weekdays-container">
                   <label class="weekday-item">
@@ -196,7 +352,7 @@
 
               <div class="form-group">
                 <label for="usage-duration">
-                  <span>⏳ Thời gian sử dụng:</span>
+                  <span>Thời gian sử dụng:</span>
                 </label>
                 <div class="duration-input-group">
                   <input
@@ -215,7 +371,7 @@
 
             <div class="form-group">
               <label for="period-select">
-                <span>⏰ Buổi uống:</span>
+                <span>Buổi uống:</span>
               </label>
               <div class="period-input-container">
                 <select id="period-select" name="period" required>
@@ -223,7 +379,7 @@
                   <option value="Trưa">Trưa (khoảng 12:00)</option>
                   <option value="Chiều">Chiều (khoảng 17:00)</option>
                   <option value="Tối">Tối (khoảng 20:00)</option>
-                  <option value="custom">🕒 Tùy chỉnh giờ</option>
+                  <option value="custom">Tùy chỉnh giờ</option>
                 </select>
                 <div
                   class="custom-time-input hidden"
@@ -244,7 +400,7 @@
 
             <div class="form-group">
               <label for="medicine-category-select">
-                <span>💊 Danh mục thuốc:</span>
+                <span>Danh mục thuốc:</span>
               </label>
               <select
                 id="medicine-category-select"
@@ -266,7 +422,7 @@
 
             <div class="form-group">
               <label for="medicine-name-input">
-                <span>🏷 Tên thuốc cụ thể:</span>
+                <span>Tên thuốc cụ thể:</span>
               </label>
               <input
                 type="text"
@@ -279,7 +435,7 @@
 
             <div class="form-group">
               <label>
-                <span>🏷 Thuốc đã chọn:</span>
+                <span>Thuốc đã chọn:</span>
               </label>
               <div
                 class="selected-medicines"
@@ -288,7 +444,7 @@
             </div>
 
             <button type="submit" class="btn-submit">
-              <span>✓ Lưu lịch uống thuốc</span>
+              <span>Lưu lịch uống thuốc</span>
             </button>
           </form>
         </div>
@@ -301,7 +457,7 @@
       <main class="page-content" id="page-stats">
         <div class="card chart-card">
           <div class="card-header">
-            <span>📈 Biểu đồ tuân thủ 7 ngày qua</span>
+            <span>Biểu đồ tuân thủ 7 ngày qua</span>
             <div class="card-header-info">
               <span>So sánh hiệu quả tuân thủ của các thành viên</span>
             </div>
@@ -316,7 +472,7 @@
         <!-- Medicine Inventory Dashboard -->
         <div class="medicine-inventory-card">
           <div class="card-header">
-            <span>📊 Tổng quan tồn kho thuốc</span>
+            <span>Tổng quan tồn kho thuốc</span>
             <div class="card-header-info">
               <span>Theo dõi số lượng và tình trạng thuốc</span>
             </div>
@@ -328,7 +484,7 @@
 
         <div class="card add-medicine-card">
           <div class="card-header">
-            <span>💊 Thêm thuốc mới</span>
+            <span>Thêm thuốc mới</span>
             <div class="card-header-info">
               <span>Quản lý kho thuốc trong tủ</span>
             </div>
@@ -337,7 +493,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="medicine-name-input">
-                  <span>💊 Tên thuốc:</span>
+                  <span>Tên thuốc:</span>
                 </label>
                 <input
                   type="text"
@@ -349,7 +505,7 @@
               </div>
               <div class="form-group">
                 <label for="medicine-dosage-input">
-                  <span>⚖️ Liều lượng:</span>
+                  <span>Liều lượng:</span>
                 </label>
                 <input
                   type="text"
@@ -363,7 +519,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="medicine-quantity-input">
-                  <span>📦 Số lượng:</span>
+                  <span>Số lượng:</span>
                 </label>
                 <input
                   type="number"
@@ -375,7 +531,7 @@
               </div>
               <div class="form-group">
                 <label for="medicine-threshold-input">
-                  <span>⚠️ Ngưỡng cảnh báo:</span>
+                  <span>Ngưỡng cảnh báo:</span>
                 </label>
                 <input
                   type="number"
@@ -389,13 +545,13 @@
             </div>
             <div class="form-group">
               <label for="medicine-expiry-input">
-                <span>📅 Ngày hết hạn:</span>
+                <span>Ngày hết hạn:</span>
               </label>
               <input type="date" id="medicine-expiry-input" name="expiryDate" />
             </div>
             <div class="form-group">
               <label for="medicine-instructions-input">
-                <span>📝 Hướng dẫn sử dụng:</span>
+                <span>Hướng dẫn sử dụng:</span>
               </label>
               <textarea
                 id="medicine-instructions-input"
@@ -405,13 +561,13 @@
               ></textarea>
             </div>
             <button type="submit" class="btn-submit">
-              <span>✓ Lưu thuốc</span>
+              <span>Lưu thuốc</span>
             </button>
           </form>
         </div>
         <div class="card medicine-list-card">
           <div class="card-header">
-            <span>💊 Danh sách thuốc trong tủ</span>
+            <span>Danh sách thuốc trong tủ</span>
             <div class="card-header-badge">
               <span class="medicine-count" id="medicine-count">0</span>
             </div>
@@ -423,7 +579,7 @@
       <main class="page-content" id="page-users">
         <div class="card add-user-card">
           <div class="card-header">
-            <span>👥 Thêm người dùng mới</span>
+            <span>Thêm người dùng mới</span>
             <div class="card-header-info">
               <span>Quản lý thành viên gia đình</span>
             </div>
@@ -431,7 +587,7 @@
           <form id="add-user-form" class="schedule-form">
             <div class="form-group">
               <label for="user-name-input">
-                <span>📝 Tên người dùng:</span>
+                <span>Tên người dùng:</span>
               </label>
               <input
                 type="text"
@@ -443,34 +599,59 @@
             </div>
             <div class="form-group">
               <label for="user-avatar-file">
-                <span>📷 Upload ảnh đại diện:</span>
+                <span>Upload ảnh khuôn mặt (4-5 ảnh):</span>
               </label>
               <div class="avatar-upload-container">
                 <input
                   type="file"
                   id="user-avatar-file"
-                  name="avatarFile"
+                  name="avatarFiles"
                   accept="image/*"
                   class="file-input"
+                  multiple
                 />
                 <label for="user-avatar-file" class="file-upload-btn">
-                  <span>📁 Chọn ảnh</span>
+                  <span>Chọn ảnh</span>
                 </label>
-                <div class="avatar-preview hidden" id="avatar-preview">
-                  <img id="preview-image" src="" alt="Preview" />
-                  <button
-                    type="button"
-                    class="remove-avatar"
-                    id="remove-avatar"
-                  >
-                    ✕
-                  </button>
+                <button type="button" class="btn-camera" id="start-camera-btn">
+                  📷 Chụp ảnh
+                </button>
+
+                <div id="camera-interface" class="hidden">
+                  <video id="camera-feed" autoplay playsinline></video>
+                  <div class="camera-controls">
+                    <button type="button" id="capture-btn" class="btn-capture">
+                      Chụp
+                    </button>
+                    <button
+                      type="button"
+                      id="close-camera-btn"
+                      class="btn-close-camera"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                  <canvas id="camera-canvas" style="display: none"></canvas>
                 </div>
+
+                <div
+                  class="avatar-preview-grid hidden"
+                  id="avatar-preview-container"
+                >
+                  <!-- Images will be inserted here -->
+                </div>
+                <button
+                  type="button"
+                  class="remove-avatar hidden"
+                  id="remove-avatar"
+                >
+                  X Xóa tất cả
+                </button>
               </div>
             </div>
             <div class="form-group">
               <label for="user-avatar-input">
-                <span>🌐 Hoặc nhập link ảnh:</span>
+                <span>Hoặc nhập link ảnh:</span>
               </label>
               <input
                 type="text"
@@ -480,13 +661,13 @@
               />
             </div>
             <button type="submit" class="btn-submit">
-              <span>✓ Lưu người dùng</span>
+              <span>Lưu người dùng</span>
             </button>
           </form>
         </div>
         <div class="card user-list-card">
           <div class="card-header">
-            <span>👥 Danh sách người dùng hiện tại</span>
+            <span>Danh sách người dùng hiện tại</span>
             <div class="card-header-badge">
               <span class="user-count" id="user-count">0</span>
             </div>

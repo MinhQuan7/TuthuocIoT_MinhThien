@@ -1,0 +1,89 @@
+/*
+ * Google Apps Script Code for Uploading Images to Google Drive
+ * 
+ * HƯỚNG DẪN CÀI ĐẶT:
+ * 1. Truy cập https://script.google.com/
+ * 2. Tạo dự án mới.
+ * 3. Copy toàn bộ code bên dưới vào file Code.gs
+ * 4. (Tùy chọn) Tạo một thư mục trên Google Drive để chứa ảnh và copy ID của thư mục đó vào biến FOLDER_ID bên dưới.
+ * 5. Nhấn Deploy (Triển khai) -> New Deployment (Triển khai mới).
+ * 6. Chọn loại: Web App.
+ * 7. Description: "Upload Image API".
+ * 8. Execute as: "Me" (Tôi).
+ * 9. Who has access: "Anyone" (Bất kỳ ai).
+ * 10. Nhấn Deploy và copy URL của Web App (bắt đầu bằng https://script.google.com/macros/s/...).
+ * 11. Dán URL đó vào biến GOOGLE_APPS_SCRIPT_URL trong file client.js của dự án web.
+ */
+
+// CẤU HÌNH
+var FOLDER_ID = ""; // Điền ID thư mục Google Drive của bạn vào đây (nếu để trống sẽ lưu vào Root)
+
+function doPost(e) {
+  // Thêm headers cho CORS để cho phép request từ web app
+  var headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST",
+    "Access-Control-Allow-Headers": "Content-Type"
+  };
+
+  try {
+    // Lấy dữ liệu gửi lên
+    var postData = e.postData.contents;
+    if (!postData) {
+      throw new Error("No data received");
+    }
+
+    var data = JSON.parse(postData);
+    var base64Data = data.base64;
+    var filename = data.filename || "upload_" + new Date().getTime() + ".jpg";
+    var mimeType = data.mimeType || "image/jpeg";
+
+    // Xác định thư mục lưu trữ
+    var folder;
+    if (FOLDER_ID && FOLDER_ID.trim() !== "") {
+      try {
+        folder = DriveApp.getFolderById(FOLDER_ID);
+      } catch (err) {
+        folder = DriveApp.getRootFolder(); // Fallback về root nếu ID sai
+      }
+    } else {
+      folder = DriveApp.getRootFolder();
+    }
+
+    // Tạo blob từ base64
+    var decoded = Utilities.base64Decode(base64Data);
+    var blob = Utilities.newBlob(decoded, mimeType, filename);
+
+    // Tạo file trên Drive
+    var file = folder.createFile(blob);
+
+    // Set quyền truy cập (tùy chọn: để public để web có thể xem được)
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    // Trả về kết quả thành công
+    var result = {
+      status: "success",
+      fileId: file.getId(),
+      fileUrl: file.getUrl(),
+      downloadUrl: file.getDownloadUrl(),
+      thumbnailLink: file.getThumbnail(), // Có thể không có ngay lập tức
+      filename: filename
+    };
+
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    // Trả về lỗi
+    var errorResult = {
+      status: "error",
+      message: error.toString()
+    };
+    return ContentService.createTextOutput(JSON.stringify(errorResult))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  return ContentService.createTextOutput("Service is running. Use POST to upload files.");
+}

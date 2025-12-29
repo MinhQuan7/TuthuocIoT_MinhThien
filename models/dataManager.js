@@ -68,34 +68,39 @@ class DataManager {
       // Validate and merge with default structure
       const defaultData = this.getDefaultData();
       const mergedData = this.mergeWithDefaults(parsedData, defaultData);
-      
+
       // Debug log cho việc load data
       console.log(`[DataManager] Data loaded successfully:`, {
         users: mergedData.users?.length || 0,
         medicines: mergedData.medicines?.length || 0,
         schedules: mergedData.schedules?.length || 0,
-        alerts: mergedData.alerts?.length || 0
+        alerts: mergedData.alerts?.length || 0,
       });
-      
+
       if (mergedData.users && mergedData.users.length > 0) {
-        console.log(`[DataManager] User details:`, 
-          mergedData.users.map(u => ({ id: u.id, name: u.name, active: u.isActive }))
+        console.log(
+          `[DataManager] User details:`,
+          mergedData.users.map((u) => ({
+            id: u.id,
+            name: u.name,
+            active: u.isActive,
+          }))
         );
       }
-      
+
       return mergedData;
     } catch (error) {
       console.log("[DataManager] Khởi tạo dữ liệu mặc định:", error.message);
       const defaultData = this.getDefaultData();
       await this.saveData(defaultData);
-      
+
       console.log(`[DataManager] Default data created:`, {
         users: defaultData.users?.length || 0,
         medicines: defaultData.medicines?.length || 0,
         schedules: defaultData.schedules?.length || 0,
-        alerts: defaultData.alerts?.length || 0
+        alerts: defaultData.alerts?.length || 0,
       });
-      
+
       return defaultData;
     }
   }
@@ -154,6 +159,7 @@ class DataManager {
       name: userData.name,
       avatar:
         userData.avatar || `https://i.pravatar.cc/150?img=${Date.now() % 70}`,
+      avatars: userData.avatars || [],
       createdAt: new Date().toISOString(),
       isActive: true,
     };

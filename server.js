@@ -131,16 +131,21 @@ io.on("connection", async (socket) => {
       users: data.users?.length || 0,
       medicines: data.medicines?.length || 0,
       schedules: data.schedules?.length || 0,
-      alerts: data.alerts?.length || 0
+      alerts: data.alerts?.length || 0,
     });
     socket.emit("initialData", data);
-    logAction("Gửi dữ liệu ban đầu", `Client: ${socket.id} | Users: ${data.users?.length || 0} | Medicines: ${data.medicines?.length || 0}`);
+    logAction(
+      "Gửi dữ liệu ban đầu",
+      `Client: ${socket.id} | Users: ${data.users?.length || 0} | Medicines: ${
+        data.medicines?.length || 0
+      }`
+    );
   } catch (error) {
     handleError(socket, error, "Initial data load");
   }
 
   // === ESSENTIAL SOCKET EVENTS ONLY ===
-  
+
   // 2. Handle new schedule creation with automatic alerts
   socket.on("saveNewSchedule", async (scheduleData) => {
     try {
@@ -213,7 +218,7 @@ io.on("connection", async (socket) => {
         success: true,
         message: `Đã tạo thành công ${createdSchedules.length} lịch uống thuốc với alert tự động!`,
         data: createdSchedules,
-        alertsScheduled: createdSchedules.length
+        alertsScheduled: createdSchedules.length,
       });
     } catch (error) {
       handleError(socket, error, "Save schedule");
@@ -225,8 +230,12 @@ io.on("connection", async (socket) => {
     try {
       const sanitizedData = {
         name: sanitizeInput(userData.name),
+        avatars: userData.avatars || [],
         avatar:
-          userData.avatar || `https://i.pravatar.cc/150?img=${Date.now() % 70}`,
+          userData.avatars && userData.avatars.length > 0
+            ? userData.avatars[0]
+            : userData.avatar ||
+              `https://i.pravatar.cc/150?img=${Date.now() % 70}`,
       };
 
       validateUserData(sanitizedData);
@@ -434,30 +443,27 @@ setInterval(monitorSystemHealth, 30 * 60000);
 setTimeout(monitorSystemHealth, 5000);
 
 // === REST API ENDPOINTS ===
-// Route upload avatar
-app.post("/api/upload-avatar", upload.single("avatar"), (req, res) => {
+// Route upload avatars
+app.post("/api/upload-avatars", upload.array("avatars", 10), (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Không có file nào được tải lên",
       });
     }
 
-    const filePath = `/assets/downloads/profile/${req.file.filename}`;
+    const filePaths = req.files.map(
+      (file) => `/assets/downloads/profile/${file.filename}`
+    );
 
     res.json({
       success: true,
       message: "Ảnh đã được tải lên thành công",
-      filePath: filePath,
-      originalName: req.file.originalname,
-      size: req.file.size,
+      filePaths: filePaths,
     });
 
-    logAction(
-      "Upload avatar",
-      `File: ${req.file.filename}, Size: ${req.file.size}`
-    );
+    logAction("Upload avatars", `Count: ${req.files.length}`);
   } catch (error) {
     console.error("Lỗi upload avatar:", error);
     res.status(500).json({
@@ -511,6 +517,59 @@ app.get("/api/alerts/status", (req, res) => {
   }
 });
 
+// API for Raspberry Pi to sync user images
+app.get("/api/users/images", async (req, res) => {
+  try {
+    const data = await dataManager.loadData();
+    const users = data.users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      avatars: u.avatars || (u.avatar ? [u.avatar] : []),
+    }));
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API for Raspberry Pi to confirm check-in
+app.post("/api/checkin/confirm", async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const data = await dataManager.loadData();
+    const user = data.users.find((u) => String(u.id) === String(userId));
+
+    if (user) {
+      const message = `✅ Đã xác nhận: ${user.name} đã đến uống thuốc!`;
+
+      // Add alert
+      await dataManager.addAlert({
+        type: "success",
+        message: message,
+        priority: "high",
+      });
+
+      // Broadcast update
+      const updatedData = await dataManager.loadData();
+      broadcastToAll("alertsUpdated", updatedData.alerts);
+
+      // Notify clients specifically about check-in
+      broadcastToAll("checkinConfirmed", {
+        userId: user.id,
+        userName: user.name,
+        timestamp: new Date().toISOString(),
+      });
+
+      logAction("Check-in Confirmed", user.name);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, message: "User not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // === ERROR HANDLING ===
 process.on("uncaughtException", (error) => {
   console.error("Uncaught Exception:", error);
@@ -523,12 +582,12 @@ process.on("unhandledRejection", (error) => {
 // === GRACEFUL SHUTDOWN ===
 process.on("SIGTERM", async () => {
   console.log("📴 Đang tắt server...");
-  
+
   // Cleanup AlertScheduler
   if (alertScheduler) {
     alertScheduler.cleanup();
   }
-  
+
   server.close(() => {
     console.log("✅ Server đã tắt thành công");
     process.exit(0);
@@ -549,21 +608,27 @@ server.listen(PORT, async () => {
     console.log(`   💊 Medicines: ${initialData.medicines?.length || 0}`);
     console.log(`   📅 Schedules: ${initialData.schedules?.length || 0}`);
     console.log(`   🚨 Alerts: ${initialData.alerts?.length || 0}`);
-    
+
     // Log user details if any exist
     if (initialData.users && initialData.users.length > 0) {
       console.log("👥 Existing users:");
       initialData.users.forEach((user, index) => {
-        console.log(`   ${index + 1}. ${user.name} (ID: ${user.id}) - Created: ${user.createdAt}`);
+        console.log(
+          `   ${index + 1}. ${user.name} (ID: ${user.id}) - Created: ${
+            user.createdAt
+          }`
+        );
       });
     }
-    
+
     // Initialize AlertScheduler
     console.log("🔔 Initializing automatic alert system...");
     await alertScheduler.initialize();
     const schedulerStatus = alertScheduler.getStatus();
-    console.log(`📋 AlertScheduler: ${schedulerStatus.activeAlerts} active alerts scheduled`);
-    
+    console.log(
+      `📋 AlertScheduler: ${schedulerStatus.activeAlerts} active alerts scheduled`
+    );
+
     console.log("✅ Server initialization completed successfully!");
   } catch (error) {
     console.error("❌ Lỗi khởi tạo dữ liệu:", error);

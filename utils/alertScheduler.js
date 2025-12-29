@@ -1,8 +1,9 @@
 // Alert Scheduler Service for Medicine Reminders
 // Manages automatic E-Ra IoT alerts based on schedule times
 
-const cron = require('node-cron');
-const EraIotClient = require('./eraIotClient');
+const cron = require("node-cron");
+const http = require("http");
+const EraIotClient = require("./eraIotClient");
 
 class AlertScheduler {
   constructor(dataManager) {
@@ -10,8 +11,35 @@ class AlertScheduler {
     this.eraIotClient = new EraIotClient();
     this.scheduledTasks = new Map(); // Store active cron jobs
     this.isInitialized = false;
-    
+
     console.log("[AlertScheduler] Service initialized");
+  }
+
+  // Trigger Raspberry Pi Check-in
+  triggerRaspberryPi() {
+    return new Promise((resolve) => {
+      // Configuration for Raspberry Pi
+      // In production, this should be loaded from config/env
+      const options = {
+        hostname: "localhost", // Change this to your Pi's IP address
+        port: 5000,
+        path: "/trigger-checkin",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      };
+
+      const req = http.request(options, (res) => {
+        console.log(`[AlertScheduler] Pi Response: ${res.statusCode}`);
+        resolve(res.statusCode === 200);
+      });
+
+      req.on("error", (e) => {
+        console.error(`[AlertScheduler] Pi Connection Error: ${e.message}`);
+        resolve(false);
+      });
+
+      req.end();
+    });
   }
 
   // Initialize scheduler và load tất cả schedules từ DB
@@ -19,15 +47,19 @@ class AlertScheduler {
     try {
       console.log("[AlertScheduler] Loading existing schedules...");
       const data = await this.dataManager.loadData();
-      
+
       // Schedule alerts cho tất cả pending schedules
-      const pendingSchedules = data.schedules.filter(s => s.status === 'pending');
-      console.log(`[AlertScheduler] Found ${pendingSchedules.length} pending schedules to monitor`);
-      
+      const pendingSchedules = data.schedules.filter(
+        (s) => s.status === "pending"
+      );
+      console.log(
+        `[AlertScheduler] Found ${pendingSchedules.length} pending schedules to monitor`
+      );
+
       for (const schedule of pendingSchedules) {
         await this.scheduleAlert(schedule);
       }
-      
+
       this.isInitialized = true;
       console.log("[AlertScheduler] Initialization completed");
     } catch (error) {
@@ -41,32 +73,47 @@ class AlertScheduler {
       // Tạo cron expression từ schedule data
       const cronExpression = this.createCronExpression(schedule);
       if (!cronExpression) {
-        console.warn(`[AlertScheduler] Cannot create cron for schedule ${schedule.id}`);
+        console.warn(
+          `[AlertScheduler] Cannot create cron for schedule ${schedule.id}`
+        );
         return;
       }
 
       // Check if task already exists
       if (this.scheduledTasks.has(schedule.id)) {
-        console.log(`[AlertScheduler] Task ${schedule.id} already scheduled, skipping`);
+        console.log(
+          `[AlertScheduler] Task ${schedule.id} already scheduled, skipping`
+        );
         return;
       }
 
-      console.log(`[AlertScheduler] Scheduling alert for schedule ${schedule.id}: ${cronExpression}`);
-      
+      console.log(
+        `[AlertScheduler] Scheduling alert for schedule ${schedule.id}: ${cronExpression}`
+      );
+
       // Create cron job
-      const task = cron.schedule(cronExpression, async () => {
-        await this.triggerAlert(schedule);
-      }, {
-        scheduled: true,
-        timezone: "Asia/Ho_Chi_Minh"
-      });
+      const task = cron.schedule(
+        cronExpression,
+        async () => {
+          await this.triggerAlert(schedule);
+        },
+        {
+          scheduled: true,
+          timezone: "Asia/Ho_Chi_Minh",
+        }
+      );
 
       // Store task reference
       this.scheduledTasks.set(schedule.id, task);
-      
-      console.log(`[AlertScheduler] Successfully scheduled alert for schedule ${schedule.id}`);
+
+      console.log(
+        `[AlertScheduler] Successfully scheduled alert for schedule ${schedule.id}`
+      );
     } catch (error) {
-      console.error(`[AlertScheduler] Failed to schedule alert for ${schedule.id}:`, error);
+      console.error(
+        `[AlertScheduler] Failed to schedule alert for ${schedule.id}:`,
+        error
+      );
     }
   }
 
@@ -75,23 +122,23 @@ class AlertScheduler {
     try {
       let minute, hour;
 
-      if (schedule.period === 'custom' && schedule.customTime) {
-        [hour, minute] = schedule.customTime.split(':').map(Number);
+      if (schedule.period === "custom" && schedule.customTime) {
+        [hour, minute] = schedule.customTime.split(":").map(Number);
       } else {
         // Default periods
         const periodTimes = {
-          'Sáng': { hour: 7, minute: 0 },
-          'Trưa': { hour: 12, minute: 0 },
-          'Chiều': { hour: 17, minute: 0 },
-          'Tối': { hour: 20, minute: 0 }
+          Sáng: { hour: 7, minute: 0 },
+          Trưa: { hour: 12, minute: 0 },
+          Chiều: { hour: 17, minute: 0 },
+          Tối: { hour: 20, minute: 0 },
         };
-        
+
         const periodTime = periodTimes[schedule.period];
         if (!periodTime) {
           console.warn(`[AlertScheduler] Unknown period: ${schedule.period}`);
           return null;
         }
-        
+
         hour = periodTime.hour;
         minute = periodTime.minute;
       }
@@ -108,16 +155,18 @@ class AlertScheduler {
         const scheduleDate = new Date(schedule.date);
         const day = scheduleDate.getDate();
         const month = scheduleDate.getMonth() + 1;
-        
+
         return `${minute} ${hour} ${day} ${month} *`;
       } else if (schedule.weekdays && schedule.weekdays.length > 0) {
         // For weekly recurring schedules
         // Convert weekdays (0=Sunday) to cron format (0=Sunday, 1=Monday, etc.)
-        const cronWeekdays = schedule.weekdays.join(',');
+        const cronWeekdays = schedule.weekdays.join(",");
         return `${minute} ${hour} * * ${cronWeekdays}`;
       }
 
-      console.warn(`[AlertScheduler] No valid date or weekdays for schedule ${schedule.id}`);
+      console.warn(
+        `[AlertScheduler] No valid date or weekdays for schedule ${schedule.id}`
+      );
       return null;
     } catch (error) {
       console.error(`[AlertScheduler] Error creating cron expression:`, error);
@@ -128,38 +177,55 @@ class AlertScheduler {
   // Trigger E-Ra IoT alert
   async triggerAlert(schedule) {
     try {
-      console.log(`[AlertScheduler] Triggering alert for schedule ${schedule.id} at ${new Date()}`);
-      
+      console.log(
+        `[AlertScheduler] Triggering alert for schedule ${
+          schedule.id
+        } at ${new Date()}`
+      );
+
       // Get user and medicine details
       const data = await this.dataManager.loadData();
-      const user = data.users.find(u => u.id === schedule.userId);
-      const medicine = data.medicines.find(m => m.id === schedule.medicineId);
-      
+      const user = data.users.find((u) => u.id === schedule.userId);
+      const medicine = data.medicines.find((m) => m.id === schedule.medicineId);
+
       if (!user || !medicine) {
-        console.error(`[AlertScheduler] Missing user or medicine data for schedule ${schedule.id}`);
+        console.error(
+          `[AlertScheduler] Missing user or medicine data for schedule ${schedule.id}`
+        );
         return;
       }
 
       // Send IoT alert (30 seconds duration)
       const iotSuccess = await this.eraIotClient.sendMedicationReminder(30000);
-      
+
+      // Trigger Raspberry Pi Camera Check-in
+      const piSuccess = await this.triggerRaspberryPi();
+
       if (iotSuccess) {
-        console.log(`[AlertScheduler] ✅ IoT alert sent successfully for ${user.name} - ${medicine.name}`);
-        
+        console.log(
+          `[AlertScheduler] ✅ IoT alert sent successfully for ${user.name} - ${medicine.name}`
+        );
+
         // Add success alert to system
         await this.dataManager.addAlert({
           type: "success",
-          message: `🔔 Alert tự động: ${user.name} cần uống ${medicine.name} - IoT đã được kích hoạt!`,
-          priority: "high"
+          message: `🔔 Alert tự động: ${user.name} cần uống ${
+            medicine.name
+          } - IoT đã được kích hoạt! ${
+            piSuccess ? "(Camera ON)" : "(Camera Error)"
+          }`,
+          priority: "high",
         });
       } else {
-        console.error(`[AlertScheduler] ❌ IoT alert failed for ${user.name} - ${medicine.name}`);
-        
+        console.error(
+          `[AlertScheduler] ❌ IoT alert failed for ${user.name} - ${medicine.name}`
+        );
+
         // Add error alert to system
         await this.dataManager.addAlert({
-          type: "warning", 
+          type: "warning",
           message: `⚠️ Alert tự động: ${user.name} cần uống ${medicine.name} - Lỗi kết nối IoT!`,
-          priority: "high"
+          priority: "high",
         });
       }
 
@@ -171,29 +237,33 @@ class AlertScheduler {
         time: new Date().toISOString(),
         user: user.name,
         medicine: `${medicine.name} (${medicine.dosage})`,
-        status: 'auto_alert',
+        status: "auto_alert",
         period: schedule.period,
         customTime: schedule.customTime,
-        type: 'automatic_reminder'
+        type: "automatic_reminder",
       };
 
       // Add to timeline
       const updatedData = await this.dataManager.loadData();
       updatedData.timeline.push(timelineEntry);
       await this.dataManager.saveData(updatedData);
-
     } catch (error) {
-      console.error(`[AlertScheduler] Failed to trigger alert for schedule ${schedule.id}:`, error);
+      console.error(
+        `[AlertScheduler] Failed to trigger alert for schedule ${schedule.id}:`,
+        error
+      );
     }
   }
 
   // Add new schedule to monitoring
   async addSchedule(schedule) {
     if (!this.isInitialized) {
-      console.warn("[AlertScheduler] Service not initialized, skipping schedule add");
+      console.warn(
+        "[AlertScheduler] Service not initialized, skipping schedule add"
+      );
       return;
     }
-    
+
     await this.scheduleAlert(schedule);
   }
 
@@ -203,7 +273,9 @@ class AlertScheduler {
     if (task) {
       task.destroy();
       this.scheduledTasks.delete(scheduleId);
-      console.log(`[AlertScheduler] Removed schedule ${scheduleId} from monitoring`);
+      console.log(
+        `[AlertScheduler] Removed schedule ${scheduleId} from monitoring`
+      );
     }
   }
 
@@ -211,9 +283,9 @@ class AlertScheduler {
   async updateSchedule(schedule) {
     // Remove old task
     this.removeSchedule(schedule.id);
-    
+
     // Add new task if still pending
-    if (schedule.status === 'pending') {
+    if (schedule.status === "pending") {
       await this.scheduleAlert(schedule);
     }
   }
@@ -223,7 +295,7 @@ class AlertScheduler {
     return {
       initialized: this.isInitialized,
       activeAlerts: this.scheduledTasks.size,
-      scheduledIds: Array.from(this.scheduledTasks.keys())
+      scheduledIds: Array.from(this.scheduledTasks.keys()),
     };
   }
 

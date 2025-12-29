@@ -1,4 +1,8 @@
 document.addEventListener("DOMContentLoaded", function () {
+  // CẤU HÌNH GOOGLE APPS SCRIPT (Điền URL Web App sau khi deploy script)
+  const GOOGLE_APPS_SCRIPT_URL =
+    "https://script.google.com/macros/s/AKfycbxwGPpBwIzg4zGg5s0s9xqzaVbmR0XPM6BHDKRmI9QOQkrAfzCcUq2Sky9jHpAQGyrO/exec"; // Ví dụ: "https://script.google.com/macros/s/AKfycbx.../exec"
+
   const socket = io();
   console.log("Đang kết nối tới máy chủ...");
 
@@ -175,10 +179,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function getNotificationIcon(type) {
     const icons = {
-      success: "✅",
-      error: "❌",
-      warning: "⚠️",
-      info: "📊",
+      success: "",
+      error: "",
+      warning: "",
+      info: "",
     };
     return icons[type] || icons.info;
   }
@@ -272,36 +276,182 @@ document.addEventListener("DOMContentLoaded", function () {
           else periodSelect.value = "Tối"; // Sau 19h
         }
       }
+
+      // *** CẬP NHẬT: Modal yêu cầu chụp ảnh cho trang User ***
+      if (targetPageId === "page-users") {
+        const modal = document.getElementById("photo-requirement-modal");
+        if (modal) {
+          modal.classList.remove("hidden");
+        }
+        // Initialize button state
+        updateSubmitButtonState();
+      }
     });
   });
 
-  // === Hàm xử lý upload avatar ===
+  // === Modal Logic ===
+  const modalConfirmBtn = document.getElementById("modal-confirm-btn");
+  const modalCancelBtn = document.getElementById("modal-cancel-btn");
+  const photoModal = document.getElementById("photo-requirement-modal");
+
+  if (modalConfirmBtn) {
+    modalConfirmBtn.addEventListener("click", () => {
+      if (photoModal) photoModal.classList.add("hidden");
+    });
+  }
+
+  if (modalCancelBtn) {
+    modalCancelBtn.addEventListener("click", () => {
+      if (photoModal) photoModal.classList.add("hidden");
+      // Switch back to dashboard
+      const dashboardLink = document.querySelector(
+        '[data-page="page-dashboard"]'
+      );
+      if (dashboardLink) dashboardLink.click();
+    });
+  }
+
+  // === Hàm xử lý upload avatar (Multiple) ===
   function initAvatarUpload() {
-    if (avatarFileInput) {
-      avatarFileInput.addEventListener("change", function (e) {
-        const file = e.target.files[0];
-        if (file) {
+    // Camera elements
+    const startCameraBtn = document.getElementById("start-camera-btn");
+    const cameraInterface = document.getElementById("camera-interface");
+    const cameraFeed = document.getElementById("camera-feed");
+    const captureBtn = document.getElementById("capture-btn");
+    const closeCameraBtn = document.getElementById("close-camera-btn");
+    const cameraCanvas = document.getElementById("camera-canvas");
+    let stream = null;
+
+    // Camera functionality
+    if (startCameraBtn) {
+      startCameraBtn.addEventListener("click", async () => {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+          });
+          cameraFeed.srcObject = stream;
+          cameraInterface.classList.remove("hidden");
+          startCameraBtn.classList.add("hidden");
+        } catch (err) {
+          console.error("Error accessing camera:", err);
+          showNotification(
+            "Không thể truy cập camera! Vui lòng kiểm tra quyền truy cập.",
+            "error"
+          );
+        }
+      });
+    }
+
+    if (closeCameraBtn) {
+      closeCameraBtn.addEventListener("click", () => {
+        stopCamera();
+      });
+    }
+
+    if (captureBtn) {
+      captureBtn.addEventListener("click", () => {
+        if (!stream) return;
+
+        // Set canvas dimensions to match video
+        cameraCanvas.width = cameraFeed.videoWidth;
+        cameraCanvas.height = cameraFeed.videoHeight;
+
+        // Draw video frame to canvas
+        const ctx = cameraCanvas.getContext("2d");
+        ctx.drawImage(
+          cameraFeed,
+          0,
+          0,
+          cameraCanvas.width,
+          cameraCanvas.height
+        );
+
+        // Convert to file
+        cameraCanvas.toBlob(
+          (blob) => {
+            const fileName = `capture_${Date.now()}.jpg`;
+            const file = new File([blob], fileName, { type: "image/jpeg" });
+
+            // Reuse existing upload logic
+            handleFiles([file]);
+
+            // Show feedback
+            showNotification("Đã chụp ảnh thành công!", "success", 1000);
+
+            // Keep camera open for next shot
+            // stopCamera();
+          },
+          "image/jpeg",
+          0.9
+        );
+      });
+    }
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        stream = null;
+      }
+      cameraFeed.srcObject = null;
+      cameraInterface.classList.add("hidden");
+      if (startCameraBtn) startCameraBtn.classList.remove("hidden");
+    }
+
+    // Helper to handle files (extracted from change event)
+    function handleFiles(files) {
+      const previewContainer = document.getElementById(
+        "avatar-preview-container"
+      );
+      const removeBtn = document.getElementById("remove-avatar");
+
+      if (files && files.length > 0) {
+        // Don't clear old previews if appending, but here we might want to append
+        // For now, let's keep behavior consistent: clear or append?
+        // The original code cleared it. Let's append if it's from camera?
+        // Actually, the original code cleared: previewContainer.innerHTML = "";
+        // Let's modify to append if we want multiple photos from camera.
+
+        // If it's the first time (hidden), clear.
+        if (previewContainer.classList.contains("hidden")) {
+          previewContainer.innerHTML = "";
+          previewContainer.classList.remove("hidden");
+        }
+
+        if (removeBtn) removeBtn.classList.remove("hidden");
+
+        let validFiles = [];
+        Array.from(files).forEach((file) => {
           if (file.type.startsWith("image/")) {
+            validFiles.push(file);
             const reader = new FileReader();
             reader.onload = function (e) {
-              previewImage.src = e.target.result;
-              avatarPreview.classList.remove("hidden");
+              const img = document.createElement("img");
+              img.src = e.target.result;
+              previewContainer.appendChild(img);
             };
             reader.readAsDataURL(file);
-
-            // Upload file to server
-            uploadAvatarFile(file);
-          } else {
-            showNotification("⚠️ Vui lòng chọn file ảnh!", "error");
           }
+        });
+
+        if (validFiles.length > 0) {
+          // Upload files to server
+          uploadAvatarFiles(validFiles);
+        } else {
+          showNotification("Vui lòng chọn file ảnh!", "error");
         }
+      }
+    }
+
+    if (avatarFileInput) {
+      avatarFileInput.addEventListener("change", function (e) {
+        handleFiles(e.target.files);
       });
     }
 
     if (removeAvatarBtn) {
       removeAvatarBtn.addEventListener("click", function () {
         resetAvatarUpload();
-        showNotification("📷 Đã xóa ảnh đã chọn!", "info");
+        showNotification("Đã xóa ảnh đã chọn!", "info");
       });
     }
   }
@@ -310,20 +460,19 @@ document.addEventListener("DOMContentLoaded", function () {
   function resetAvatarUpload() {
     if (avatarFileInput) avatarFileInput.value = "";
 
-    // Smooth animation when hiding preview
-    if (avatarPreview && !avatarPreview.classList.contains("hidden")) {
-      avatarPreview.style.opacity = "0";
-      avatarPreview.style.transform = "scale(0.8)";
+    const previewContainer = document.getElementById(
+      "avatar-preview-container"
+    );
+    const removeBtn = document.getElementById("remove-avatar");
 
-      setTimeout(() => {
-        avatarPreview.classList.add("hidden");
-        avatarPreview.style.opacity = "";
-        avatarPreview.style.transform = "";
-      }, 200);
+    if (previewContainer) {
+      previewContainer.innerHTML = "";
+      previewContainer.classList.add("hidden");
     }
+    if (removeBtn) removeBtn.classList.add("hidden");
 
-    if (previewImage) previewImage.src = "";
-    uploadedAvatarPath = null;
+    uploadedAvatarPaths = []; // Reset array
+    updateSubmitButtonState(); // Update button state
 
     // Clear URL input as well
     const avatarUrlInput = document.getElementById("user-avatar-input");
@@ -332,32 +481,112 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("Avatar upload state reset");
   }
 
-  function uploadAvatarFile(file) {
+  let uploadedAvatarPaths = []; // Store array of paths
+
+  // Function to update submit button state based on photo count
+  function updateSubmitButtonState() {
+    const submitBtn = document.querySelector("#add-user-form .btn-submit");
+    if (!submitBtn) return;
+
+    const photoCount = uploadedAvatarPaths.length;
+    const requiredCount = 5;
+
+    if (photoCount >= requiredCount) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = "<span>Lưu người dùng</span>";
+      submitBtn.style.background = ""; // Reset to default CSS
+      submitBtn.title = "";
+    } else {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span>Cần thêm ${
+        requiredCount - photoCount
+      } ảnh nữa</span>`;
+      submitBtn.title = "Vui lòng tải lên đủ 5 ảnh để tiếp tục";
+    }
+  }
+
+  // === Hàm upload ảnh lên Google Drive ===
+  async function uploadToGoogleDrive(file) {
+    if (!GOOGLE_APPS_SCRIPT_URL) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64Data = reader.result.split(",")[1];
+        const payload = {
+          base64: base64Data,
+          filename: file.name,
+          mimeType: file.type,
+        };
+
+        try {
+          const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) throw new Error("Network response was not ok");
+          const data = await response.json();
+          resolve(data);
+        } catch (error) {
+          console.error("Google Drive Upload Error:", error);
+          resolve(null);
+        }
+      };
+      reader.onerror = (error) => resolve(null);
+    });
+  }
+
+  function uploadAvatarFiles(files) {
+    // Trigger Google Drive Upload in background
+    if (GOOGLE_APPS_SCRIPT_URL) {
+      console.log("Bắt đầu upload backup lên Google Drive...");
+      files.forEach((file) => {
+        uploadToGoogleDrive(file).then((res) => {
+          if (res && res.status === "success") {
+            console.log(`Đã backup lên Drive: ${res.fileUrl}`);
+          }
+        });
+      });
+    }
+
     const formData = new FormData();
-    formData.append("avatar", file);
+    files.forEach((file) => {
+      formData.append("avatars", file);
+    });
 
     // Show loading state
-    showNotification("📤 Đang tải ảnh lên...", "info", 2000);
+    showNotification(`Đang tải ${files.length} ảnh lên...`, "info", 2000);
 
-    fetch("/api/upload-avatar", {
+    fetch("/api/upload-avatars", {
+      // Changed endpoint
       method: "POST",
       body: formData,
     })
       .then((response) => response.json())
       .then((data) => {
         if (data.success) {
-          uploadedAvatarPath = data.filePath;
-          showNotification("✓ Ảnh đã được tải lên thành công!", "success");
+          // Append new paths to existing array instead of replacing
+          uploadedAvatarPaths = [...uploadedAvatarPaths, ...data.filePaths];
+
+          updateSubmitButtonState(); // Update button state
+
+          showNotification(
+            `${data.filePaths.length} ảnh đã được tải lên thành công! (Tổng: ${uploadedAvatarPaths.length})`,
+            "success"
+          );
           console.log("Avatar uploaded successfully:", data.filePath);
         } else {
-          showNotification("❌ Lỗi tải ảnh: " + data.message, "error");
-          resetAvatarUpload(); // Reset on failure
+          showNotification("Lỗi tải ảnh: " + data.message, "error");
+          // Don't reset all on partial failure, just don't add
         }
       })
       .catch((error) => {
         console.error("Lỗi upload:", error);
-        showNotification("❌ Lỗi kết nối khi tải ảnh!", "error");
-        resetAvatarUpload(); // Reset on error
+        showNotification("Lỗi kết nối khi tải ảnh!", "error");
       });
   }
 
@@ -408,16 +637,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const category = medicineCategorySelect.value;
 
     if (!medicineName || !category) {
-      showNotification(
-        "⚠️ Vui lòng chọn danh mục và nhập tên thuốc!",
-        "warning"
-      );
+      showNotification("Vui lòng chọn danh mục và nhập tên thuốc!", "warning");
       return;
     }
 
     // Kiểm tra thuốc đã có chưa
     if (selectedMedicines.some((med) => med.name === medicineName)) {
-      showNotification("⚠️ Thuốc này đã có trong danh sách!", "warning");
+      showNotification("Thuốc này đã có trong danh sách!", "warning");
       return;
     }
 
@@ -480,99 +706,6 @@ document.addEventListener("DOMContentLoaded", function () {
   updateTime();
   setInterval(updateTime, 60000);
 
-  // === Hàm xử lý thuốc theo danh mục ===
-  function initMedicineCategory() {
-    if (medicineCategorySelect && medicineNameInput) {
-      medicineCategorySelect.addEventListener("change", function () {
-        const category = this.value;
-        if (category && medicinesByCategory[category]) {
-          // Tạo datalist cho medicine name input
-          let datalist = document.getElementById("medicine-suggestions");
-          if (!datalist) {
-            datalist = document.createElement("datalist");
-            datalist.id = "medicine-suggestions";
-            medicineNameInput.setAttribute("list", "medicine-suggestions");
-            medicineNameInput.parentNode.appendChild(datalist);
-          }
-
-          datalist.innerHTML = "";
-          medicinesByCategory[category].forEach((medicine) => {
-            const option = document.createElement("option");
-            option.value = medicine;
-            datalist.appendChild(option);
-          });
-        }
-      });
-
-      // Xử lý thêm thuốc vào danh sách
-      medicineNameInput.addEventListener("keypress", function (e) {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          addMedicineToList();
-        }
-      });
-
-      // Thêm nút thêm thuốc
-      const addMedicineBtn = document.createElement("button");
-      addMedicineBtn.type = "button";
-      addMedicineBtn.className = "btn-add-medicine";
-      addMedicineBtn.innerHTML = "+ Thêm";
-      addMedicineBtn.onclick = addMedicineToList;
-      medicineNameInput.parentNode.appendChild(addMedicineBtn);
-    }
-  }
-
-  function addMedicineToList() {
-    const medicineName = medicineNameInput.value.trim();
-    const category = medicineCategorySelect.value;
-
-    if (!medicineName || !category) {
-      showNotification(
-        "⚠️ Vui lòng chọn danh mục và nhập tên thuốc!",
-        "warning"
-      );
-      return;
-    }
-
-    // Kiểm tra thuốc đã có chưa
-    if (selectedMedicines.some((med) => med.name === medicineName)) {
-      showNotification("⚠️ Thuốc này đã có trong danh sách!", "warning");
-      return;
-    }
-
-    const medicine = {
-      id: Date.now(),
-      name: medicineName,
-      category: category,
-    };
-
-    selectedMedicines.push(medicine);
-    renderSelectedMedicines();
-    medicineNameInput.value = "";
-  }
-
-  function renderSelectedMedicines() {
-    if (!selectedMedicinesContainer) return;
-
-    selectedMedicinesContainer.innerHTML = "";
-
-    if (selectedMedicines.length === 0) {
-      selectedMedicinesContainer.innerHTML =
-        '<span class="no-medicines">Chưa có thuốc nào được chọn</span>';
-      return;
-    }
-
-    selectedMedicines.forEach((medicine) => {
-      const tag = document.createElement("div");
-      tag.className = "medicine-tag";
-      tag.innerHTML = `
-        <span>${medicine.name}</span>
-        <button type="button" class="remove-tag" onclick="removeMedicine(${medicine.id})">×</button>
-      `;
-      selectedMedicinesContainer.appendChild(tag);
-    });
-  }
-
   // Khởi tạo các tính năng mới
   initAvatarUpload();
   initMedicineCategory();
@@ -613,7 +746,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // === Hàm tiện ích định dạng thời gian ===
   function formatCustomPeriod(period, customTime) {
     if (period === "custom" && customTime) {
-      return `🕐 ${customTime}`;
+      return `${customTime}`;
     }
     return period;
   }
@@ -636,7 +769,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // === Các hàm render HTML ===
   function createAlertHTML(alert) {
-    const icon = alert.type === "danger" ? "❌" : "⚠️";
+    const icon = alert.type === "danger" ? "" : "";
     return `<li class="alert-item ${alert.type}"><span class="icon">${icon}</span><div>${alert.message}</div></li>`;
   }
 
@@ -709,13 +842,13 @@ document.addEventListener("DOMContentLoaded", function () {
               )}</strong>
             </div>
             <div class="schedule-details">
-              <div class="user-info">👤 ${user?.name || "Unknown User"}</div>
-              <div class="medicine-info">💊 ${
+              <div class="user-info">${user?.name || "Unknown User"}</div>
+              <div class="medicine-info">${
                 medicine?.name || "Unknown Medicine"
               } ${medicine?.dosage ? `(${medicine.dosage})` : ""}</div>
               ${
                 item.notes
-                  ? `<div class="schedule-notes">📝 ${item.notes}</div>`
+                  ? `<div class="schedule-notes">${item.notes}</div>`
                   : ""
               }
             </div>
@@ -726,8 +859,8 @@ document.addEventListener("DOMContentLoaded", function () {
               statusClass === "pending"
                 ? `
               <div class="schedule-actions">
-                <button class="btn-action btn-taken" data-id="${item.id}" data-action="taken">✓ Đã uống</button>
-                <button class="btn-action btn-missed" data-id="${item.id}" data-action="missed">✗ Bỏ lỡ</button>
+                <button class="btn-action btn-taken" data-id="${item.id}" data-action="taken">Đã uống</button>
+                <button class="btn-action btn-missed" data-id="${item.id}" data-action="missed">Bỏ lỡ</button>
               </div>
             `
                 : ""
@@ -796,9 +929,9 @@ document.addEventListener("DOMContentLoaded", function () {
       console.warn("⚠️ userList element not found");
       return;
     }
-    
+
     userList.innerHTML = "";
-    
+
     if (!users || users.length === 0) {
       console.log("📝 No users found, showing empty message");
       userList.innerHTML = "<li class='no-data'>Không có người dùng nào.</li>";
@@ -811,17 +944,25 @@ document.addEventListener("DOMContentLoaded", function () {
       userList.innerHTML += `
                 <li class="user-list-item" data-user-id="${user.id}">
                     <div class="user-list-info">
-                        <img src="${user.avatar}" alt="Avatar" class="user-avatar" onerror="this.src='https://i.pravatar.cc/150?img=${user.id % 70}'">
+                        <img src="${
+                          user.avatar
+                        }" alt="Avatar" class="user-avatar" onerror="this.src='https://i.pravatar.cc/150?img=${
+        user.id % 70
+      }'">
                         <div class="user-details">
                           <span class="user-name">${user.name}</span>
-                          <small class="user-created">Tạo: ${formatDate(user.createdAt)}</small>
+                          <small class="user-created">Tạo: ${formatDate(
+                            user.createdAt
+                          )}</small>
                         </div>
                     </div>
-                    <button class="btn-delete" data-id="${user.id}" title="Xóa người dùng">Xóa</button>
+                    <button class="btn-delete" data-id="${
+                      user.id
+                    }" title="Xóa người dùng">Xóa</button>
                 </li>
             `;
     });
-    
+
     console.log("✅ User list rendered successfully");
   }
 
@@ -832,12 +973,14 @@ document.addEventListener("DOMContentLoaded", function () {
       console.warn("⚠️ userSelectDropdown element not found");
       return;
     }
-    
-    userSelectDropdown.innerHTML = "<option value=''>Chọn người dùng...</option>";
-    
+
+    userSelectDropdown.innerHTML =
+      "<option value=''>Chọn người dùng...</option>";
+
     if (!users || users.length === 0) {
       console.log("📝 No users found for dropdown");
-      userSelectDropdown.innerHTML += "<option disabled>Chưa có người dùng</option>";
+      userSelectDropdown.innerHTML +=
+        "<option disabled>Chưa có người dùng</option>";
       return;
     }
 
@@ -848,7 +991,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <option value="${user.id}">${user.name}</option>
             `;
     });
-    
+
     console.log("✅ User dropdown rendered successfully");
   }
 
@@ -955,7 +1098,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }">
           <div class="medicine-info">
             <div class="medicine-header">
-              <span class="medicine-name">💊 ${medicine.name}</span>
+              <span class="medicine-name">${medicine.name}</span>
               <span class="medicine-dosage">${medicine.dosage}</span>
             </div>
             <div class="medicine-details">
@@ -972,7 +1115,7 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
             ${
               medicine.instructions
-                ? `<div class="medicine-instructions">📝 ${medicine.instructions}</div>`
+                ? `<div class="medicine-instructions">${medicine.instructions}</div>`
                 : ""
             }
             ${
@@ -982,7 +1125,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             ${
               stockWarning
-                ? `<div class="warning-message">⚠️ Sắp hết thuốc!</div>`
+                ? `<div class="warning-message">Sắp hết thuốc!</div>`
                 : ""
             }
           </div>
@@ -1029,17 +1172,17 @@ document.addEventListener("DOMContentLoaded", function () {
     if (daysToExpiry <= 0) {
       return {
         class: "expired",
-        message: "🚫 Thuốc đã hết hạn!",
+        message: "Thuốc đã hết hạn!",
       };
     } else if (daysToExpiry <= 7) {
       return {
         class: "expiring-soon",
-        message: `⏰ Sẽ hết hạn trong ${daysToExpiry} ngày`,
+        message: `Sẽ hết hạn trong ${daysToExpiry} ngày`,
       };
     } else if (daysToExpiry <= 30) {
       return {
         class: "expiring-month",
-        message: `📅 Hết hạn trong ${daysToExpiry} ngày`,
+        message: `Hết hạn trong ${daysToExpiry} ngày`,
       };
     }
 
@@ -1054,39 +1197,72 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     const ctx = chartCanvas.getContext("2d");
 
-    // Modern gradient colors
-    const gradient1 = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient1.addColorStop(0, "rgba(37, 99, 235, 0.8)");
-    gradient1.addColorStop(1, "rgba(37, 99, 235, 0.2)");
+    // Define colors for dynamic users
+    const colors = [
+      { base: "37, 99, 235", hex: "#2563eb" }, // Blue
+      { base: "5, 150, 105", hex: "#059669" }, // Green
+      { base: "220, 38, 38", hex: "#dc2626" }, // Red
+      { base: "217, 119, 6", hex: "#d97706" }, // Amber
+      { base: "147, 51, 234", hex: "#9333ea" }, // Purple
+    ];
 
-    const gradient2 = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient2.addColorStop(0, "rgba(5, 150, 105, 0.8)");
-    gradient2.addColorStop(1, "rgba(5, 150, 105, 0.2)");
+    // Generate datasets based on actual users
+    const datasets = [];
+
+    // Check if we have users in localDataStore
+    if (
+      localDataStore &&
+      localDataStore.users &&
+      localDataStore.users.length > 0
+    ) {
+      localDataStore.users.forEach((user, index) => {
+        const color = colors[index % colors.length];
+
+        // Create gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, `rgba(${color.base}, 0.8)`);
+        gradient.addColorStop(1, `rgba(${color.base}, 0.2)`);
+
+        const userKey = `user${user.id}`;
+        // Get data for this user, default to zeros if not found
+        const userData = stats.dailyBreakdown[userKey] || [0, 0, 0, 0, 0, 0, 0];
+
+        datasets.push({
+          label: user.name, // Use real user name
+          data: userData,
+          backgroundColor: gradient,
+          borderColor: `rgba(${color.base}, 1)`,
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false,
+        });
+      });
+    } else {
+      // Fallback if no users found, try to use keys from stats
+      const userKeys = Object.keys(stats.dailyBreakdown || {});
+      userKeys.forEach((key, index) => {
+        const color = colors[index % colors.length];
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, `rgba(${color.base}, 0.8)`);
+        gradient.addColorStop(1, `rgba(${color.base}, 0.2)`);
+
+        datasets.push({
+          label: key, // Fallback to key
+          data: stats.dailyBreakdown[key],
+          backgroundColor: gradient,
+          borderColor: `rgba(${color.base}, 1)`,
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false,
+        });
+      });
+    }
 
     complianceChartInstance = new Chart(ctx, {
       type: "bar",
       data: {
         labels: stats.labels,
-        datasets: [
-          {
-            label: "👨 Ông (User 1)",
-            data: stats.dailyBreakdown.user1,
-            backgroundColor: gradient1,
-            borderColor: "rgba(37, 99, 235, 1)",
-            borderWidth: 2,
-            borderRadius: 8,
-            borderSkipped: false,
-          },
-          {
-            label: "👩 Bà (User 2)",
-            data: stats.dailyBreakdown.user2,
-            backgroundColor: gradient2,
-            borderColor: "rgba(5, 150, 105, 1)",
-            borderWidth: 2,
-            borderRadius: 8,
-            borderSkipped: false,
-          },
-        ],
+        datasets: datasets,
       },
       options: {
         responsive: true,
@@ -1123,7 +1299,7 @@ document.addEventListener("DOMContentLoaded", function () {
             beginAtZero: true,
             title: {
               display: true,
-              text: "📊 Số liều đã uống",
+              text: "Số liều đã uống",
               color: "#64748b",
               font: { size: 12, weight: "600" },
             },
@@ -1139,7 +1315,7 @@ document.addEventListener("DOMContentLoaded", function () {
           x: {
             title: {
               display: true,
-              text: "🗺 Ngày trong tuần",
+              text: "Ngày trong tuần",
               color: "#64748b",
               font: { size: 12, weight: "600" },
             },
@@ -1187,7 +1363,7 @@ document.addEventListener("DOMContentLoaded", function () {
           alertList.innerHTML += createAlertHTML(alert);
         });
       } else {
-        alertList.innerHTML = `<li class="no-alerts"><span class="icon">✅</span><div>Không có cảnh báo nào!</div></li>`;
+        alertList.innerHTML = `<li class="no-alerts"><span class="icon"></span><div>Không có cảnh báo nào!</div></li>`;
       }
     }
 
@@ -1229,7 +1405,7 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("📊 Users data:", data.users);
     console.log("💊 Medicines data:", data.medicines);
     console.log("📅 Schedules data:", data.schedules);
-    
+
     renderScheduleList(data.schedules || []);
     renderUserList(data.users || []);
     renderUserDropdown(data.users || []);
@@ -1243,16 +1419,17 @@ document.addEventListener("DOMContentLoaded", function () {
     if (userCount) userCount.textContent = (data.users || []).length;
 
     const medicineCount = document.getElementById("medicine-count");
-    if (medicineCount) medicineCount.textContent = (data.medicines || []).length;
+    if (medicineCount)
+      medicineCount.textContent = (data.medicines || []).length;
 
     const alertCount = document.getElementById("alert-count");
     if (alertCount) {
-      const unreadAlerts = (data.alerts || []).filter(alert => !alert.isRead);
+      const unreadAlerts = (data.alerts || []).filter((alert) => !alert.isRead);
       alertCount.textContent = unreadAlerts.length;
     }
 
     console.log("✅ Initial data rendering completed!");
-    showNotification("🎯 Hệ thống đã khởi động thành công!", "success", 3000);
+    showNotification("Hệ thống đã khởi động thành công!", "success", 3000);
   });
 
   // Enhanced IoT status updates with visual feedback
@@ -1299,9 +1476,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Show notification for significant changes
     if (data.status === "offline") {
-      showNotification("⚠️ Tủ thuốc mất kết nối!", "warning");
+      showNotification("Tủ thuốc mất kết nối!", "warning");
     } else if (data.status === "online") {
-      showNotification("✅ Tủ thuốc đã kết nối trở lại!", "success");
+      showNotification("Tủ thuốc đã kết nối trở lại!", "success");
     }
   });
 
@@ -1341,7 +1518,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       // Show success notification
-      showNotification("✅ Cập nhật hoạt động mới!", "success");
+      showNotification("Cập nhật hoạt động mới!", "success");
     }
   });
 
@@ -1411,10 +1588,10 @@ document.addEventListener("DOMContentLoaded", function () {
         btn.disabled = false;
         if (btn.innerHTML.includes("Đang lưu")) {
           if (btn.innerHTML.includes("thuốc"))
-            btn.innerHTML = "<span>✓ Lưu thuốc</span>";
+            btn.innerHTML = "<span>Lưu thuốc</span>";
           else if (btn.innerHTML.includes("lịch"))
-            btn.innerHTML = "<span>✓ Lưu lịch</span>";
-          else btn.innerHTML = "<span>✓ Lưu người dùng</span>";
+            btn.innerHTML = "<span>Lưu lịch</span>";
+          else btn.innerHTML = "<span>Lưu người dùng</span>";
         }
       });
     }, 1000);
@@ -1459,11 +1636,11 @@ document.addEventListener("DOMContentLoaded", function () {
         // Success animation
         submitButton.style.background =
           "linear-gradient(135deg, #10b981 0%, #059669 100%)";
-        submitButton.innerHTML = "✓ Đã lưu!";
+        submitButton.innerHTML = "Đã lưu!";
 
         setTimeout(() => {
           submitButton.disabled = false;
-          submitButton.innerHTML = "✓ Lưu lịch hẹn";
+          submitButton.innerHTML = "Lưu lịch hẹn";
           submitButton.style.background = "";
         }, 1500);
       }
@@ -1530,7 +1707,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (alertList) {
       alertList.innerHTML = "";
       if (alerts.length === 0) {
-        alertList.innerHTML = `<li class="no-alerts"><span class="icon">✅</span><div>Không có cảnh báo nào!</div></li>`;
+        alertList.innerHTML = `<li class="no-alerts"><span class="icon"></span><div>Không có cảnh báo nào!</div></li>`;
       } else {
         alerts.forEach((alert) => {
           alertList.innerHTML += createAlertHTML(alert);
@@ -1546,8 +1723,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // Enhanced reminder alerts with IoT status
   socket.on("reminderAlert", (reminderData) => {
     const iotStatus = reminderData.iotTriggered
-      ? "✅ IoT đã kích hoạt"
-      : "❌ IoT lỗi";
+      ? "IoT đã kích hoạt"
+      : "IoT lỗi";
     const message = `${reminderData.message} ${iotStatus}`;
     showNotification(
       message,
@@ -1606,8 +1783,12 @@ document.addEventListener("DOMContentLoaded", function () {
     renderUserList(users);
     renderUserDropdown(users);
 
+    // Update user count
+    const userCount = document.getElementById("user-count");
+    if (userCount) userCount.textContent = users.length;
+
     // Modern notification
-    showNotification("✅ Đã cập nhật danh sách người dùng!", "success");
+    showNotification("Đã cập nhật danh sách người dùng!", "success");
 
     if (addUserForm) {
       const submitButton = addUserForm.querySelector(".btn-submit");
@@ -1615,11 +1796,11 @@ document.addEventListener("DOMContentLoaded", function () {
         // Success animation
         submitButton.style.background =
           "linear-gradient(135deg, #10b981 0%, #059669 100%)";
-        submitButton.innerHTML = "✓ Đã thêm!";
+        submitButton.innerHTML = "Đã thêm!";
 
         setTimeout(() => {
           submitButton.disabled = false;
-          submitButton.innerHTML = "✓ Lưu người dùng";
+          submitButton.innerHTML = "Lưu người dùng";
           submitButton.style.background = "";
         }, 1500);
       }
@@ -1644,7 +1825,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (action === "remind") {
           // Visual feedback
-          button.innerHTML = "🔔 Đang gửi IoT...";
+          button.innerHTML = "Đang gửi IoT...";
           button.disabled = true;
           button.style.opacity = "0.7";
 
@@ -1655,7 +1836,7 @@ document.addEventListener("DOMContentLoaded", function () {
           socket.emit("sendReminder", { userId: item.dataset.id, user: user });
 
           setTimeout(() => {
-            button.innerHTML = "🔔 Gửi nhắc nhở IoT";
+            button.innerHTML = "Gửi nhắc nhở IoT";
             button.disabled = false;
             button.style.opacity = "1";
             item.style.transform = "scale(1)";
@@ -1669,14 +1850,14 @@ document.addEventListener("DOMContentLoaded", function () {
           }, 2000);
         } else if (action === "stop-alert") {
           // Stop IoT alert
-          button.innerHTML = "🔕 Đang dừng...";
+          button.innerHTML = "Đang dừng...";
           button.disabled = true;
           button.style.opacity = "0.7";
 
           socket.emit("stopIoTAlert", { user: user });
 
           setTimeout(() => {
-            button.innerHTML = "🔕 Dừng cảnh báo";
+            button.innerHTML = "Dừng cảnh báo";
             button.disabled = false;
             button.style.opacity = "1";
 
@@ -1689,14 +1870,14 @@ document.addEventListener("DOMContentLoaded", function () {
           }, 1500);
         } else if (action === "test-iot") {
           // Test IoT connection
-          button.innerHTML = "🔧 Đang test...";
+          button.innerHTML = "Đang test...";
           button.disabled = true;
           button.style.opacity = "0.7";
 
           socket.emit("testIoTConnection");
 
           setTimeout(() => {
-            button.innerHTML = "🔧 Test IoT";
+            button.innerHTML = "Test IoT";
             button.disabled = false;
             button.style.opacity = "1";
 
@@ -1719,7 +1900,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const submitButton = addMedicineForm.querySelector(".btn-submit");
       if (submitButton) {
         submitButton.disabled = true;
-        submitButton.textContent = "Đang lưu... ⏳";
+        submitButton.textContent = "Đang lưu...";
       }
 
       const formData = new FormData(addMedicineForm);
@@ -1736,7 +1917,7 @@ document.addEventListener("DOMContentLoaded", function () {
         showNotification("Vui lòng nhập tên thuốc và liều lượng!", "error");
         if (submitButton) {
           submitButton.disabled = false;
-          submitButton.innerHTML = "<span>✓ Lưu thuốc</span>";
+          submitButton.innerHTML = "<span>Lưu thuốc</span>";
         }
         return;
       }
@@ -1752,7 +1933,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const submitButton = addScheduleForm.querySelector(".btn-submit");
       if (submitButton) {
         submitButton.disabled = true;
-        submitButton.textContent = "Đang lưu... ⏳";
+        submitButton.textContent = "Đang lưu...";
       }
 
       const formData = new FormData(addScheduleForm);
@@ -1778,10 +1959,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Validation for custom time
       if (scheduleData.period === "custom" && !scheduleData.customTime) {
-        showNotification("⚠️ Vui lòng nhập thời gian tùy chỉnh!", "error");
+        showNotification("Vui lòng nhập thời gian tùy chỉnh!", "error");
         if (submitButton) {
           submitButton.disabled = false;
-          submitButton.innerHTML = "<span>✓ Lưu lịch uống thuốc</span>";
+          submitButton.innerHTML = "<span>Lưu lịch uống thuốc</span>";
         }
         return;
       }
@@ -1796,7 +1977,7 @@ document.addEventListener("DOMContentLoaded", function () {
         showNotification("Vui lòng điền đầy đủ thông tin!", "error");
         if (submitButton) {
           submitButton.disabled = false;
-          submitButton.innerHTML = "<span>✓ Lưu lịch uống thuốc</span>";
+          submitButton.innerHTML = "<span>Lưu lịch uống thuốc</span>";
         }
         return;
       }
@@ -1812,7 +1993,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const submitButton = addUserForm.querySelector(".btn-submit");
       if (submitButton) {
         submitButton.disabled = true;
-        submitButton.textContent = "Đang lưu... ⏳";
+        submitButton.textContent = "Đang lưu...";
       }
 
       const formData = new FormData(addUserForm);
@@ -1821,14 +2002,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const data = {
         name: userName,
-        avatar: uploadedAvatarPath || avatarUrl || null,
+        avatars:
+          uploadedAvatarPaths.length > 0
+            ? uploadedAvatarPaths
+            : avatarUrl
+            ? [avatarUrl]
+            : [],
       };
 
       if (!data.name || !data.name.trim()) {
-        showNotification("⚠️ Vui lòng nhập tên người dùng!", "error");
+        showNotification("Vui lòng nhập tên người dùng!", "error");
         if (submitButton) {
           submitButton.disabled = false;
-          submitButton.innerHTML = "<span>✓ Lưu người dùng</span>";
+          submitButton.innerHTML = "<span>Lưu người dùng</span>";
         }
         return;
       }

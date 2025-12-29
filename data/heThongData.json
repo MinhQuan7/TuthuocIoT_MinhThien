@@ -1,104 +1,893 @@
 {
   "metadata": {
-    "version": "1.0.0",
-    "lastUpdate": "2025-11-14T04:17:00.479Z",
-    "created": "2025-11-13T19:36:45.574Z"
+    "version": "2.0.0",
+    "lastUpdate": "2025-12-29T15:28:26.543Z",
+    "created": "2025-11-24T02:44:00.538Z"
   },
   "system": {
     "status": "Online",
     "temperature": 25,
     "humidity": 65,
-    "lastSensorUpdate": "2025-11-13T19:36:45.574Z"
+    "lastSensorUpdate": "2025-11-24T02:44:00.538Z"
   },
   "users": [
     {
-      "id": 1763063989722,
-      "name": "Ông Quân",
-      "avatar": "/assets/downloads/profile/avatar-1763063988530-153138098.png",
-      "createdAt": "2025-11-13T19:59:49.722Z",
+      "id": 1767005221116,
+      "name": "ông Quân",
+      "avatar": "/assets/downloads/profile/avatar-1767005205909-724036555.jpg",
+      "avatars": [
+        "/assets/downloads/profile/avatar-1767005205909-724036555.jpg",
+        "/assets/downloads/profile/avatar-1767005210020-225208550.jpg",
+        "/assets/downloads/profile/avatar-1767005213218-865625783.jpg",
+        "/assets/downloads/profile/avatar-1767005216830-486466002.jpg",
+        "/assets/downloads/profile/avatar-1767005220250-256906018.jpg"
+      ],
+      "createdAt": "2025-12-29T10:47:01.116Z",
       "isActive": true
     },
     {
-      "id": 1763064047460,
-      "name": "Con",
-      "avatar": "/assets/downloads/profile/avatar-1763064043672-237665664.webp",
-      "createdAt": "2025-11-13T20:00:47.460Z",
-      "isActive": true
-    },
-    {
-      "id": 1763081110387,
-      "name": "Ông Tám",
-      "avatar": "/assets/downloads/profile/avatar-1763081109159-517512983.jpg",
-      "createdAt": "2025-11-14T00:45:10.387Z",
-      "isActive": true
-    },
-    {
-      "id": 1763081725805,
-      "name": "Ông Chín",
-      "avatar": "/assets/downloads/profile/avatar-1763081724828-580027832.jpg",
-      "createdAt": "2025-11-14T00:55:25.805Z",
-      "isActive": true
-    },
-    {
-      "id": 1763091728550,
+      "id": 1767017157698,
       "name": "Thiện",
-      "avatar": "/assets/downloads/profile/avatar-1763091727312-221210836.avif",
-      "createdAt": "2025-11-14T03:42:08.550Z",
+      "avatar": "/assets/downloads/profile/avatar-1767017035743-183282257.jpg",
+      "avatars": [
+        "/assets/downloads/profile/avatar-1767017035743-183282257.jpg",
+        "/assets/downloads/profile/avatar-1767017039927-341667498.jpg",
+        "/assets/downloads/profile/avatar-1767017043567-74880530.jpg",
+        "/assets/downloads/profile/avatar-1767017046983-696793313.jpg",
+        "/assets/downloads/profile/avatar-1767017050860-352806804.jpg"
+      ],
+      "createdAt": "2025-12-29T14:05:57.698Z",
+      "isActive": true
+    },
+    {
+      "id": 1767021964386,
+      "name": "Ông Chín",
+      "avatar": "/assets/downloads/profile/avatar-1767021891561-838783055.jpg",
+      "avatars": [
+        "/assets/downloads/profile/avatar-1767021891561-838783055.jpg",
+        "/assets/downloads/profile/avatar-1767021955515-826561615.jpg",
+        "/assets/downloads/profile/avatar-1767021958714-805148100.jpg",
+        "/assets/downloads/profile/avatar-1767021961118-326682604.jpg",
+        "/assets/downloads/profile/avatar-1767021963701-517762077.jpg"
+      ],
+      "createdAt": "2025-12-29T15:26:04.386Z",
       "isActive": true
     }
   ],
   "medicines": [
     {
-      "id": 1763093747884.2532,
-      "name": "Captopril 25mg",
-      "category": "cold-flu",
-      "dosage": "Theo chỉ định bác sỹ",
-      "instructions": "",
-      "quantity": 30,
-      "minThreshold": 5,
-      "expiryDate": null,
-      "createdAt": "2025-11-14T04:15:47.573Z"
+      "id": 1767005584764,
+      "name": "Smecta",
+      "category": "other",
+      "dosage": "1",
+      "instructions": "Uống sau ăn",
+      "sideEffects": "",
+      "expiryDate": "2026-01-29",
+      "quantity": 1,
+      "minThreshold": 3,
+      "createdAt": "2025-12-29T10:53:04.764Z",
+      "isActive": true
     }
   ],
   "schedules": [
     {
-      "id": 1763093748081,
-      "userId": 1763063989722,
-      "medicineId": 1763093747884.2532,
-      "date": "2025-11-14",
+      "id": 1767005616124,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2025-12-29",
       "period": "custom",
-      "customTime": "11:17",
+      "customTime": "17:55",
       "status": "pending",
-      "createdAt": "2025-11-14T04:15:47.574Z",
+      "createdAt": "2025-12-29T10:53:35.951Z",
       "actualTime": null,
       "notes": "",
       "weekdays": [
-        5
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
       ],
-      "usageDuration": 1,
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616635,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2025-12-30",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:35.958Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616573,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2025-12-31",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:35.963Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616505,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-01",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:35.967Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616571,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-02",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.038Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616364,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-03",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.042Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616447,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-04",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.046Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616685,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-05",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.051Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005617005,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-06",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.058Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616933,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-07",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.064Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616208,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-08",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.069Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616596,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-09",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.074Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616212,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-10",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.079Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616584,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-11",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.083Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616754,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-12",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.090Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616837,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-13",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.095Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616399,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-14",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.100Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616660,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-15",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.106Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005617101,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-16",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.111Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616151,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-17",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.116Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616784,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-18",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.124Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616893,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-19",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.130Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616499,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-20",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.136Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616674,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-21",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.141Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616590,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-22",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.146Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616593,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-23",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.151Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005617033,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-24",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.158Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616637,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-25",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.163Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616631,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-26",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.169Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616375,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-27",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.174Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
+      "endDate": null
+    },
+    {
+      "id": 1767005616756,
+      "userId": 1767005221116,
+      "medicineId": 1767005584764,
+      "date": "2026-01-28",
+      "period": "custom",
+      "customTime": "17:55",
+      "status": "pending",
+      "createdAt": "2025-12-29T10:53:36.179Z",
+      "actualTime": null,
+      "notes": "",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        0
+      ],
+      "usageDuration": 30,
       "endDate": null
     }
   ],
   "timeline": [
     {
-      "id": 1763093820475,
+      "id": 1763952240536,
       "userId": 1763063989722,
-      "scheduleId": 1763093748081,
-      "time": "2025-11-14T04:17:00.475Z",
+      "scheduleId": 1763952216264,
+      "time": "2025-11-24T02:44:00.536Z",
       "user": "Ông Quân",
-      "medicine": "Captopril 25mg (Theo chỉ định bác sỹ)",
+      "medicine": "Bioflora (Theo chỉ định bác sỹ)",
       "status": "auto_alert",
       "period": "custom",
-      "customTime": "11:17",
+      "customTime": "09:44",
+      "type": "automatic_reminder"
+    },
+    {
+      "id": 1767005700602,
+      "userId": 1767005221116,
+      "scheduleId": 1767005616124,
+      "time": "2025-12-29T10:55:00.602Z",
+      "user": "ông Quân",
+      "medicine": "Smecta (1)",
+      "status": "auto_alert",
+      "period": "custom",
+      "customTime": "17:55",
       "type": "automatic_reminder"
     }
   ],
   "alerts": [
     {
-      "id": 1763093820467,
-      "type": "success",
-      "message": "🔔 Alert tự động: Ông Quân cần uống Captopril 25mg - IoT đã được kích hoạt!",
-      "createdAt": "2025-11-14T04:17:00.467Z",
+      "id": 1767005700593,
+      "type": "warning",
+      "message": "⚠️ Alert tự động: ông Quân cần uống Smecta - Lỗi kết nối IoT!",
+      "createdAt": "2025-12-29T10:55:00.593Z",
+      "isRead": false,
+      "priority": "high"
+    },
+    {
+      "id": 1767006030059,
+      "type": "danger",
+      "message": "⚠️ Thuốc Smecta sắp hết! Còn lại 1 viên",
+      "createdAt": "2025-12-29T11:00:30.059Z",
+      "isRead": false,
+      "priority": "high"
+    },
+    {
+      "id": 1767007830058,
+      "type": "danger",
+      "message": "⚠️ Thuốc Smecta sắp hết! Còn lại 1 viên",
+      "createdAt": "2025-12-29T11:30:30.058Z",
+      "isRead": false,
+      "priority": "high"
+    },
+    {
+      "id": 1767009630075,
+      "type": "danger",
+      "message": "⚠️ Thuốc Smecta sắp hết! Còn lại 1 viên",
+      "createdAt": "2025-12-29T12:00:30.075Z",
+      "isRead": false,
+      "priority": "high"
+    },
+    {
+      "id": 1767012540107,
+      "type": "danger",
+      "message": "⚠️ Thuốc Smecta sắp hết! Còn lại 1 viên",
+      "createdAt": "2025-12-29T12:49:00.108Z",
+      "isRead": false,
+      "priority": "high"
+    },
+    {
+      "id": 1767013263273,
+      "type": "danger",
+      "message": "⚠️ Thuốc Smecta sắp hết! Còn lại 1 viên",
+      "createdAt": "2025-12-29T13:01:03.273Z",
+      "isRead": false,
+      "priority": "high"
+    },
+    {
+      "id": 1767016711530,
+      "type": "danger",
+      "message": "⚠️ Thuốc Smecta sắp hết! Còn lại 1 viên",
+      "createdAt": "2025-12-29T13:58:31.530Z",
+      "isRead": false,
+      "priority": "high"
+    },
+    {
+      "id": 1767018506531,
+      "type": "danger",
+      "message": "⚠️ Thuốc Smecta sắp hết! Còn lại 1 viên",
+      "createdAt": "2025-12-29T14:28:26.531Z",
+      "isRead": false,
+      "priority": "high"
+    },
+    {
+      "id": 1767020306535,
+      "type": "danger",
+      "message": "⚠️ Thuốc Smecta sắp hết! Còn lại 1 viên",
+      "createdAt": "2025-12-29T14:58:26.535Z",
+      "isRead": false,
+      "priority": "high"
+    },
+    {
+      "id": 1767022106543,
+      "type": "danger",
+      "message": "⚠️ Thuốc Smecta sắp hết! Còn lại 1 viên",
+      "createdAt": "2025-12-29T15:28:26.543Z",
       "isRead": false,
       "priority": "high"
     }
@@ -106,18 +895,24 @@
   "reminders": [],
   "inventory": {
     "totalMedicines": 1,
-    "lowStock": [],
+    "lowStock": [
+      {
+        "id": 1767005584764,
+        "name": "Smecta",
+        "quantity": 1,
+        "threshold": 3,
+        "daysRemaining": 0
+      }
+    ],
     "expiringSoon": [],
     "expired": [],
-    "lastUpdated": "2025-11-14T04:15:47.574Z"
+    "lastUpdated": "2025-12-29T10:53:36.179Z"
   },
   "statistics": {
     "compliance": {
-      "user1763063989722": 0,
-      "user1763064047460": 0,
-      "user1763081110387": 0,
-      "user1763081725805": 0,
-      "user1763091728550": 0
+      "user1767005221116": 0,
+      "user1767017157698": 0,
+      "user1767021964386": 0
     },
     "labels": [
       "T2",
@@ -129,7 +924,7 @@
       "CN"
     ],
     "dailyBreakdown": {
-      "user1763063989722": [
+      "user1767005221116": [
         0,
         0,
         0,
@@ -138,7 +933,7 @@
         0,
         0
       ],
-      "user1763064047460": [
+      "user1767017157698": [
         0,
         0,
         0,
@@ -147,25 +942,7 @@
         0,
         0
       ],
-      "user1763081110387": [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
-      ],
-      "user1763081725805": [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
-      ],
-      "user1763091728550": [
+      "user1767021964386": [
         0,
         0,
         0,
