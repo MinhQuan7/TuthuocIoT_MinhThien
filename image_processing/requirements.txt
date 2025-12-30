@@ -1,6 +1,9 @@
 opencv-python
-face_recognition
 requests
 python-dotenv
 numpy
 flask
+dlib-bin
+face_recognition_models
+Click
+Pillow

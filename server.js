@@ -213,6 +213,7 @@ io.on("connection", async (socket) => {
       // Get updated schedules and broadcast
       const updatedData = await dataManager.loadData();
       broadcastToAll("scheduleUpdated", updatedData.schedules);
+      broadcastToAll("statsUpdate", updatedData.statistics);
 
       socket.emit("actionResponse", {
         success: true,
@@ -244,6 +245,23 @@ io.on("connection", async (socket) => {
       const newUser = await dataManager.addUser(sanitizedData);
       const updatedData = await dataManager.loadData();
       broadcastToAll("userListUpdated", updatedData.users);
+      broadcastToAll("statsUpdate", updatedData.statistics);
+
+      // Notify Python script (Raspberry Pi) to sync faces
+      try {
+        const pythonUrl = process.env.PYTHON_API_URL || "http://localhost:5000";
+        console.log(`Triggering face sync at ${pythonUrl}...`);
+        fetch(`${pythonUrl}/sync-faces`, { method: "POST" })
+          .then((res) => res.json())
+          .then((data) =>
+            console.log("✅ Python sync triggered successfully:", data)
+          )
+          .catch((err) =>
+            console.error("⚠️ Failed to trigger Python sync:", err.message)
+          );
+      } catch (e) {
+        console.error("Error triggering sync:", e);
+      }
 
       socket.emit("actionResponse", {
         success: true,
@@ -264,6 +282,7 @@ io.on("connection", async (socket) => {
       await dataManager.deleteUser(userId);
       const updatedData = await dataManager.loadData();
       broadcastToAll("userListUpdated", updatedData.users);
+      broadcastToAll("statsUpdate", updatedData.statistics);
 
       socket.emit("actionResponse", {
         success: true,
@@ -301,6 +320,44 @@ io.on("connection", async (socket) => {
       });
     } catch (error) {
       handleError(socket, error, "Save medicine");
+    }
+  });
+
+  // Handle delete medicine
+  socket.on("deleteMedicine", async (medicineId) => {
+    try {
+      logAction("Xóa thuốc", `ID: ${medicineId}`);
+      await dataManager.deleteMedicine(medicineId);
+      const updatedData = await dataManager.loadData();
+
+      // Broadcast updates for both medicines list and inventory stats
+      broadcastToAll("medicinesUpdated", updatedData.medicines);
+      broadcastToAll("inventoryUpdated", updatedData.inventory);
+      broadcastToAll("alertsUpdated", updatedData.alerts);
+
+      socket.emit("actionResponse", {
+        success: true,
+        message: "Đã xóa thuốc thành công!",
+      });
+    } catch (error) {
+      handleError(socket, error, "Delete medicine");
+    }
+  });
+
+  // 6. Handle clear alerts
+  socket.on("clearAlerts", async () => {
+    try {
+      logAction("Xóa tất cả cảnh báo");
+      await dataManager.clearAllAlerts();
+      const updatedData = await dataManager.loadData();
+      broadcastToAll("alertsUpdated", updatedData.alerts);
+
+      socket.emit("actionResponse", {
+        success: true,
+        message: "Đã xóa tất cả cảnh báo!",
+      });
+    } catch (error) {
+      handleError(socket, error, "Clear alerts");
     }
   });
 
@@ -539,33 +596,112 @@ app.post("/api/checkin/confirm", async (req, res) => {
     const data = await dataManager.loadData();
     const user = data.users.find((u) => String(u.id) === String(userId));
 
-    if (user) {
-      const message = `✅ Đã xác nhận: ${user.name} đã đến uống thuốc!`;
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    // Find schedules for this user today
+    const userSchedules = data.schedules.filter(
+      (s) => String(s.userId) === String(userId) && s.date === todayStr
+    );
+
+    if (userSchedules.length === 0) {
+      return res.json({ success: false, message: "No schedules for today" });
+    }
+
+    let confirmedSchedule = null;
+    let checkInStatus = null; // 'taken', 'late'
+
+    for (const schedule of userSchedules) {
+      // Skip if already completed/checked-in
+      if (schedule.status === "taken" || schedule.status === "late") {
+        continue;
+      }
+
+      // Calculate scheduled time
+      const periodTime = getPeriodTime(schedule.period, schedule.customTime);
+      const scheduledTime = new Date(schedule.date);
+      scheduledTime.setHours(periodTime.hour, periodTime.minute, 0, 0);
+
+      // Calculate difference in hours
+      const diffMs = now - scheduledTime;
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      // Logic:
+      // -1h <= diff <= 1h: On Time (Taken)
+      // 1h < diff <= 4h: Late
+
+      if (diffHours >= -1 && diffHours <= 1) {
+        checkInStatus = "taken";
+        confirmedSchedule = schedule;
+        break; // Found the matching slot
+      } else if (diffHours > 1 && diffHours <= 4) {
+        checkInStatus = "late";
+        confirmedSchedule = schedule;
+        break; // Found the matching slot
+      }
+    }
+
+    if (confirmedSchedule && checkInStatus) {
+      // Update schedule status using DataManager to ensure timeline and stats are updated
+      await dataManager.updateScheduleStatus(
+        confirmedSchedule.id,
+        checkInStatus,
+        now.toISOString()
+      );
+
+      // Get medicine details for the alert
+      const medicine = data.medicines.find(
+        (m) => String(m.id) === String(confirmedSchedule.medicineId)
+      );
+      const medicineName = medicine
+        ? medicine.name
+        : confirmedSchedule.medicineName || "Thuốc";
+
+      // Create Alert Message
+      const statusText = checkInStatus === "taken" ? "Đúng giờ" : "Trễ";
+      const alertType = checkInStatus === "taken" ? "success" : "warning";
+      const message = `✅ Đã xác nhận: ${user.name} đã uống thuốc (${medicineName}) - ${statusText}!`;
 
       // Add alert
       await dataManager.addAlert({
-        type: "success",
+        type: alertType,
         message: message,
         priority: "high",
       });
 
-      // Broadcast update
-      const updatedData = await dataManager.loadData();
+      // Broadcast updates
+      const updatedData = await dataManager.loadData(); // Reload to get fresh state
       broadcastToAll("alertsUpdated", updatedData.alerts);
+      broadcastToAll("scheduleUpdated", updatedData.schedules); // Update schedule UI
+      broadcastToAll("inventoryUpdated", updatedData.inventory); // Update inventory stats
+      broadcastToAll("statsUpdate", updatedData.statistics); // Update statistics
 
       // Notify clients specifically about check-in
       broadcastToAll("checkinConfirmed", {
         userId: user.id,
         userName: user.name,
-        timestamp: new Date().toISOString(),
+        medicineName: medicineName,
+        status: checkInStatus,
+        timestamp: now.toISOString(),
       });
 
-      logAction("Check-in Confirmed", user.name);
-      res.json({ success: true });
+      logAction("Check-in Confirmed", `${user.name} - ${checkInStatus}`);
+      res.json({ success: true, status: checkInStatus });
     } else {
-      res.status(404).json({ success: false, message: "User not found" });
+      // No matching time slot or already checked in
+      res.json({
+        success: false,
+        message: "Not within check-in window or already checked in",
+      });
     }
   } catch (error) {
+    console.error("Check-in error:", error);
     res.status(500).json({ error: error.message });
   }
 });

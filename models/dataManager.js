@@ -131,6 +131,9 @@ class DataManager {
     try {
       await this.ensureDataDirectory();
 
+      // Recalculate statistics before saving to ensure consistency
+      this.recalculateStatistics(data);
+
       // Update metadata
       data.metadata.lastUpdate = new Date().toISOString();
 
@@ -221,6 +224,35 @@ class DataManager {
     return newMedicine;
   }
 
+  async deleteMedicine(medicineId) {
+    const data = await this.loadData();
+    const initialLength = data.medicines.length;
+
+    // Find medicine name before deleting to clean up alerts
+    const medicineToDelete = data.medicines.find(
+      (m) => m.id === parseInt(medicineId)
+    );
+    const medicineName = medicineToDelete ? medicineToDelete.name : null;
+
+    data.medicines = data.medicines.filter(
+      (m) => m.id !== parseInt(medicineId)
+    );
+
+    if (data.medicines.length < initialLength) {
+      // Remove alerts related to this medicine
+      if (medicineName) {
+        data.alerts = data.alerts.filter(
+          (alert) => !alert.message.includes(medicineName)
+        );
+      }
+
+      this.updateInventoryData(data);
+      await this.saveData(data);
+      return true;
+    }
+    return false;
+  }
+
   async addSchedule(scheduleData) {
     const data = await this.loadData();
 
@@ -307,7 +339,7 @@ class DataManager {
         data.timeline.push(timelineEntry);
 
         // Update statistics
-        this.updateUserStatistics(data, schedule.userId, status);
+        this.recalculateStatistics(data);
       }
 
       await this.saveData(data);
@@ -316,47 +348,80 @@ class DataManager {
     return null;
   }
 
-  updateUserStatistics(data, userId, status) {
-    const userKey = `user${userId}`;
-    if (!data.statistics.compliance[userKey]) {
-      data.statistics.compliance[userKey] = 0;
-      data.statistics.dailyBreakdown[userKey] = [0, 0, 0, 0, 0, 0, 0];
-      data.statistics.weeklyUsage[userKey] = 0;
+  recalculateStatistics(data) {
+    // Initialize statistics structure if missing
+    if (!data.statistics) {
+      data.statistics = {
+        compliance: {},
+        labels: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+        dailyBreakdown: {},
+        weeklyUsage: {},
+        monthlyTrends: {},
+      };
     }
 
-    // Update compliance percentage
-    const userSchedules = data.schedules.filter((s) => s.userId === userId);
-    const completedSchedules = userSchedules.filter(
-      (s) => s.status === "taken"
-    );
-    data.statistics.compliance[userKey] =
-      userSchedules.length > 0
-        ? Math.round((completedSchedules.length / userSchedules.length) * 100)
-        : 0;
+    const now = new Date();
+    const oneDay = 24 * 60 * 60 * 1000;
 
-    // Update daily breakdown (today's index)
-    const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, ...
-    const todaySchedules = userSchedules.filter((s) => {
-      const scheduleDate = new Date(s.date);
-      const now = new Date();
-      return scheduleDate.toDateString() === now.toDateString();
+    // Calculate start of the current week (Monday)
+    // getDay(): 0 (Sun) -> 6 (Sat). We want Mon (1) to be index 0.
+    const currentDay = now.getDay(); // 0-6
+    const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - daysToMonday);
+    const nextMonday = new Date(monday.getTime() + 7 * oneDay);
+
+    // Iterate users
+    data.users.forEach((user) => {
+      const userKey = `user${user.id}`;
+
+      // Reset daily breakdown for this user
+      data.statistics.dailyBreakdown[userKey] = [0, 0, 0, 0, 0, 0, 0];
+
+      // Filter schedules for this user
+      const userSchedules = data.schedules.filter((s) => s.userId === user.id);
+
+      // 1. Compliance (Last 7 days rolling window)
+      // We consider schedules from 7 days ago up to now
+      const sevenDaysAgo = new Date(now.getTime() - 7 * oneDay);
+      const recentSchedules = userSchedules.filter((s) => {
+        const d = new Date(s.date);
+        return d >= sevenDaysAgo && d <= now;
+      });
+
+      const takenCount = recentSchedules.filter(
+        (s) => s.status === "taken" || s.status === "late"
+      ).length;
+      const totalCount = recentSchedules.length;
+
+      data.statistics.compliance[userKey] =
+        totalCount > 0 ? Math.round((takenCount / totalCount) * 100) : 0;
+
+      // 2. Daily Breakdown (Current Week Mon-Sun)
+      // We iterate through schedules that fall within this week (Mon -> Sun)
+      const thisWeekSchedules = userSchedules.filter((s) => {
+        const d = new Date(s.date);
+        return (
+          d >= monday &&
+          d < nextMonday &&
+          (s.status === "taken" || s.status === "late")
+        );
+      });
+
+      thisWeekSchedules.forEach((s) => {
+        const d = new Date(s.date);
+        // Calculate day index (0=Mon, 6=Sun)
+        let dayIndex = d.getDay() - 1;
+        if (dayIndex === -1) dayIndex = 6; // Sunday
+
+        if (dayIndex >= 0 && dayIndex <= 6) {
+          data.statistics.dailyBreakdown[userKey][dayIndex]++;
+        }
+      });
     });
 
-    const todayCompleted = todaySchedules.filter(
-      (s) => s.status === "taken"
-    ).length;
-    data.statistics.dailyBreakdown[userKey][today] = todayCompleted;
-
-    // Update weekly usage
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    const weekSchedules = userSchedules.filter((s) => {
-      const scheduleDate = new Date(s.date);
-      return scheduleDate >= weekStart;
-    });
-    data.statistics.weeklyUsage[userKey] = weekSchedules.filter(
-      (s) => s.status === "taken"
-    ).length;
+    return data;
   }
 
   updateInventoryData(data) {
@@ -454,6 +519,13 @@ class DataManager {
       return alert;
     }
     return null;
+  }
+
+  async clearAllAlerts() {
+    const data = await this.loadData();
+    data.alerts = [];
+    await this.saveData(data);
+    return true;
   }
 
   async updateSystemStatus(statusData) {

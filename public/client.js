@@ -16,10 +16,30 @@ document.addEventListener("DOMContentLoaded", function () {
   const deviceHumidity = document.getElementById("device-humidity");
   const alertList = document.getElementById("alert-list");
   const timelineList = document.getElementById("timeline-list");
-  const statUser1 = document.getElementById("stat-user-1");
-  const statBar1 = document.getElementById("stat-bar-1");
-  const statUser2 = document.getElementById("stat-user-2");
-  const statBar2 = document.getElementById("stat-bar-2");
+  const alertExpandContainer = document.getElementById(
+    "alert-expand-container"
+  );
+  const alertExpandBtn = document.getElementById("alert-expand-btn");
+  const clearAlertsBtn = document.getElementById("clear-alerts-btn");
+  let isAlertsExpanded = false;
+
+  if (alertExpandBtn) {
+    alertExpandBtn.addEventListener("click", () => {
+      isAlertsExpanded = !isAlertsExpanded;
+      alertExpandBtn.textContent = isAlertsExpanded ? "Thu gọn" : "Xem thêm";
+      if (localDataStore && localDataStore.alerts) {
+        renderAlertsList(localDataStore.alerts);
+      }
+    });
+  }
+
+  if (clearAlertsBtn) {
+    clearAlertsBtn.addEventListener("click", () => {
+      if (confirm("Bạn có chắc chắn muốn xóa tất cả cảnh báo không?")) {
+        socket.emit("clearAlerts");
+      }
+    });
+  }
 
   // Trang Lịch Cài đặt
   const addScheduleForm = document.getElementById("add-schedule-form");
@@ -656,6 +676,9 @@ document.addEventListener("DOMContentLoaded", function () {
     selectedMedicines.push(medicine);
     renderSelectedMedicines();
     medicineNameInput.value = "";
+    // Reset category select to default to avoid validation error on next add if user forgets
+    // But for the form submission validation, we need to check selectedMedicines length, not the input fields.
+    // medicineCategorySelect.value = "";
   }
 
   function renderSelectedMedicines() {
@@ -686,6 +709,17 @@ document.addEventListener("DOMContentLoaded", function () {
       (med) => med.id !== medicineId
     );
     renderSelectedMedicines();
+  };
+
+  // Hàm xóa thuốc khỏi hệ thống (Inventory)
+  window.deleteMedicine = function (medicineId) {
+    if (
+      confirm(
+        "Bạn có chắc chắn muốn xóa thuốc này khỏi hệ thống? Hành động này không thể hoàn tác."
+      )
+    ) {
+      socket.emit("deleteMedicine", medicineId);
+    }
   };
 
   // === Cập nhật đồng hồ ===
@@ -773,10 +807,57 @@ document.addEventListener("DOMContentLoaded", function () {
     return `<li class="alert-item ${alert.type}"><span class="icon">${icon}</span><div>${alert.message}</div></li>`;
   }
 
+  function renderAlertsList(alerts) {
+    if (!alertList) return;
+    alertList.innerHTML = "";
+
+    if (!alerts || alerts.length === 0) {
+      alertList.innerHTML = `<li class="no-alerts"><span class="icon"></span><div>Không có cảnh báo nào!</div></li>`;
+      if (alertExpandContainer) alertExpandContainer.style.display = "none";
+      return;
+    }
+
+    // Show only first 5 if not expanded
+    const alertsToShow = isAlertsExpanded ? alerts : alerts.slice(0, 5);
+
+    alertsToShow.forEach((alert) => {
+      alertList.innerHTML += createAlertHTML(alert);
+    });
+
+    // Show/hide expand button
+    if (alertExpandContainer) {
+      if (alerts.length > 5) {
+        alertExpandContainer.style.display = "block";
+        alertExpandBtn.textContent = isAlertsExpanded ? "Thu gọn" : "Xem thêm";
+      } else {
+        alertExpandContainer.style.display = "none";
+      }
+    }
+  }
+
   function createTimelineHTML(event) {
+    let timeDisplay = event.time;
+    try {
+      const date = new Date(event.time);
+      if (!isNaN(date.getTime())) {
+        const timeStr = date.toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+        const dateStr = date.toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+        });
+        timeDisplay = `${timeStr}<br><span style="font-size: 0.85em; font-weight: normal; color: #64748b;">${dateStr}</span>`;
+      }
+    } catch (e) {
+      console.error("Error formatting date:", e);
+    }
+
     return `
             <li class="timeline-item">
-                <div class="timeline-time">${event.time}</div>
+                <div class="timeline-time" style="display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.2;">${timeDisplay}</div>
                 <div class="timeline-content">
                     <div class="user">${event.user}</div>
                     <div class="medication">${event.medicine}</div>
@@ -892,6 +973,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // *** CẬP NHẬT: Hiển thị Buổi trên Timeline với hỗ trợ custom time ***
   function renderUpcomingSchedule(schedules) {
     if (!timelineList) return;
+    timelineList.innerHTML = ""; // Clear existing list
 
     // Sắp xếp lịch theo buổi với custom time support
     schedules.sort((a, b) => {
@@ -901,15 +983,28 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     const todayString = getTodayString();
+    let count = 0;
 
     schedules.forEach((item) => {
       if (item.date === todayString) {
+        count++;
+        // Lookup user and medicine details
+        const user = localDataStore.users?.find((u) => u.id === item.userId);
+        const medicine = localDataStore.medicines?.find(
+          (m) => m.id === item.medicineId
+        );
+
+        const userName = user ? user.name : item.user || "Unknown User";
+        const medicineName = medicine
+          ? medicine.name
+          : item.medicine || "Unknown Medicine";
+
         const displayPeriod = formatCustomPeriod(item.period, item.customTime);
         timelineList.innerHTML += `
-                    <li class="timeline-item" data-status="pending" data-id="${item.id}" data-user="${item.user}">
+                    <li class="timeline-item" data-status="pending" data-id="${item.id}" data-user="${userName}">
                         <div class="timeline-time">${displayPeriod}</div> <div class="timeline-content">
-                            <div class="user">${item.user}</div>
-                            <div class="medication">${item.medicine}</div>
+                            <div class="user">${userName}</div>
+                            <div class="medication">${medicineName}</div>
                             <span class="timeline-status status-pending">Sắp tới</span>
                             <div class="timeline-actions">
                               <button class="btn-action" data-action="remind">Gửi nhắc nhở IoT</button>
@@ -920,6 +1015,18 @@ document.addEventListener("DOMContentLoaded", function () {
                     </li>`;
       }
     });
+
+    // Update count badge
+    const timelineCount = document.getElementById("timeline-count");
+    if (timelineCount) {
+      timelineCount.textContent = count;
+      timelineCount.style.display = count > 0 ? "inline-block" : "none";
+    }
+
+    if (count === 0) {
+      timelineList.innerHTML =
+        "<li class='no-timeline'><span class='icon'></span><div>Không có hoạt động nào hôm nay!</div></li>";
+    }
   }
 
   // (Giữ nguyên hàm renderUserList)
@@ -1055,6 +1162,11 @@ document.addEventListener("DOMContentLoaded", function () {
         <div class="inventory-header">
           <div class="inventory-name">${medicine.name}</div>
           <div class="inventory-status ${statusClass}">${statusText}</div>
+          <button class="delete-inventory-btn" onclick="deleteMedicine(${
+            medicine.id
+          })" title="Xóa thuốc">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
         </div>
         <div class="inventory-details">
           <div>Số lượng: ${medicine.quantity} ${
@@ -1100,6 +1212,11 @@ document.addEventListener("DOMContentLoaded", function () {
             <div class="medicine-header">
               <span class="medicine-name">${medicine.name}</span>
               <span class="medicine-dosage">${medicine.dosage}</span>
+              <button class="delete-medicine-btn" onclick="deleteMedicine(${
+                medicine.id
+              })" title="Xóa thuốc">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
             </div>
             <div class="medicine-details">
               <span class="medicine-quantity">Còn lại: ${
@@ -1153,6 +1270,76 @@ document.addEventListener("DOMContentLoaded", function () {
         <option value="${medicine.id}">${medicine.name} (${medicine.dosage})</option>
       `;
     });
+  }
+
+  // Function to render user compliance stats dynamically
+  function renderUserComplianceStats(users, complianceData) {
+    const container = document.getElementById("stats-users-container");
+    const avgElement = document.getElementById("stats-average");
+
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    if (!users || users.length === 0) {
+      container.innerHTML =
+        '<div class="no-data">Chưa có người dùng nào.</div>';
+      if (avgElement) avgElement.textContent = "--";
+      return;
+    }
+
+    let totalCompliance = 0;
+    let count = 0;
+
+    users.forEach((user) => {
+      // Try to find compliance data for this user
+      // Assuming complianceData keys are like "user1", "user2", etc. or just user IDs
+      let percentage = 0;
+      if (complianceData) {
+        // Check for "user{id}" format
+        if (complianceData[`user${user.id}`] !== undefined) {
+          percentage = complianceData[`user${user.id}`];
+        }
+        // Check for direct ID format (if changed in backend)
+        else if (complianceData[user.id] !== undefined) {
+          percentage = complianceData[user.id];
+        }
+      }
+
+      totalCompliance += percentage;
+      count++;
+
+      // Determine progress bar color class based on percentage
+      let progressClass = "";
+      if (percentage < 50) progressClass = "low";
+      else if (percentage < 80) progressClass = "medium"; // You might need to add this class in CSS if not exists, or just rely on default/low
+
+      const userStatHTML = `
+        <div class="stats-user">
+          <div class="stats-header">
+            <span class="user-name">${user.name}</span>
+            <span class="percentage">${percentage}%</span>
+          </div>
+          <div class="progress-bar">
+            <div
+              class="progress-bar-inner ${progressClass}"
+              style="width: ${percentage}%"
+            ></div>
+          </div>
+        </div>
+      `;
+      container.insertAdjacentHTML("beforeend", userStatHTML);
+    });
+
+    if (avgElement && count > 0) {
+      const avg = Math.round(totalCompliance / count);
+      avgElement.textContent = `${avg}%`;
+
+      // Color code the average
+      avgElement.className = "stats-avg"; // Reset
+      if (avg < 50) avgElement.classList.add("low");
+      else if (avg >= 80) avgElement.classList.add("high");
+    }
   }
 
   // Helper functions
@@ -1356,16 +1543,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (deviceHumidity)
       deviceHumidity.textContent = `${data.system?.humidity || "--"} %`;
 
-    if (alertList) {
-      alertList.innerHTML = "";
-      if (data.alerts && data.alerts.length > 0) {
-        data.alerts.forEach((alert) => {
-          alertList.innerHTML += createAlertHTML(alert);
-        });
-      } else {
-        alertList.innerHTML = `<li class="no-alerts"><span class="icon"></span><div>Không có cảnh báo nào!</div></li>`;
-      }
-    }
+    renderAlertsList(data.alerts || []);
 
     if (timelineList) {
       timelineList.innerHTML = "";
@@ -1387,17 +1565,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Fix statistics display
     if (data.statistics && data.statistics.compliance) {
-      const userKeys = Object.keys(data.statistics.compliance);
-      if (userKeys.length >= 1 && statUser1) {
-        const user1Stats = data.statistics.compliance[userKeys[0]] || 0;
-        statUser1.textContent = `${user1Stats}%`;
-        if (statBar1) statBar1.style.width = `${user1Stats}%`;
-      }
-      if (userKeys.length >= 2 && statUser2) {
-        const user2Stats = data.statistics.compliance[userKeys[1]] || 0;
-        statUser2.textContent = `${user2Stats}%`;
-        if (statBar2) statBar2.style.width = `${user2Stats}%`;
-      }
+      renderUserComplianceStats(data.users || [], data.statistics.compliance);
     }
 
     // Render all components với logging để debug
@@ -1413,6 +1581,10 @@ document.addEventListener("DOMContentLoaded", function () {
     renderMedicineDropdown(data.medicines || []);
     renderInventoryDashboard(data.inventory, data.medicines || []);
     renderStatisticsChart(data.statistics);
+    renderUserComplianceStats(
+      data.users || [],
+      data.statistics?.compliance || {}
+    );
 
     // Update UI counters
     const userCount = document.getElementById("user-count");
@@ -1609,6 +1781,12 @@ document.addEventListener("DOMContentLoaded", function () {
     if (medicineCount) medicineCount.textContent = medicines.length;
   });
 
+  socket.on("inventoryUpdated", (inventory) => {
+    console.log("Cập nhật tồn kho:", inventory);
+    localDataStore.inventory = inventory;
+    renderInventoryDashboard(inventory, localDataStore.medicines);
+  });
+
   // Enhanced schedule updates with better UX
   socket.on("scheduleUpdated", (allSchedules) => {
     console.log("Lịch cài đặt đã được cập nhật:", allSchedules);
@@ -1665,14 +1843,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // 7. Lắng nghe cập nhật Thống kê
   socket.on("statsUpdate", (data) => {
-    // (Giữ nguyên)
     console.log("Nhận cập nhật thống kê:", data);
     localDataStore.statistics = data;
-    if (statUser1) statUser1.textContent = `${data.compliance.user1}%`;
-    if (statBar1) statBar1.style.width = `${data.compliance.user1}%`;
-    if (statUser2)
-      statUser2.textContent = `${data.statistics.compliance.user2}%`;
-    if (statBar2) statBar2.style.width = `${data.statistics.compliance.user2}%`;
+
+    renderUserComplianceStats(
+      localDataStore.users || [],
+      data.compliance || {}
+    );
 
     const statsPage = document.getElementById("page-stats");
     if (statsPage && statsPage.style.display === "block") {
@@ -1685,17 +1862,30 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("Cập nhật timeline:", timeline);
     localDataStore.timeline = timeline;
 
+    // Update count badge
+    const timelineCount = document.getElementById("timeline-count");
+    if (timelineCount) {
+      timelineCount.textContent = timeline.length;
+      timelineCount.style.display =
+        timeline.length > 0 ? "inline-block" : "none";
+    }
+
     if (timelineList) {
       timelineList.innerHTML = "";
-      timeline
-        .slice()
-        .reverse()
-        .forEach((event) => {
-          timelineList.insertAdjacentHTML(
-            "afterbegin",
-            createTimelineHTML(event)
-          );
-        });
+      if (timeline.length === 0) {
+        timelineList.innerHTML =
+          "<li class='no-timeline'><span class='icon'></span><div>Không có hoạt động nào hôm nay!</div></li>";
+      } else {
+        timeline
+          .slice()
+          .reverse()
+          .forEach((event) => {
+            timelineList.insertAdjacentHTML(
+              "afterbegin",
+              createTimelineHTML(event)
+            );
+          });
+      }
     }
   });
 
@@ -1704,16 +1894,7 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("Cập nhật cảnh báo:", alerts);
     localDataStore.alerts = alerts;
 
-    if (alertList) {
-      alertList.innerHTML = "";
-      if (alerts.length === 0) {
-        alertList.innerHTML = `<li class="no-alerts"><span class="icon"></span><div>Không có cảnh báo nào!</div></li>`;
-      } else {
-        alerts.forEach((alert) => {
-          alertList.innerHTML += createAlertHTML(alert);
-        });
-      }
-    }
+    renderAlertsList(alerts);
 
     const alertCount = document.getElementById("alert-count");
     if (alertCount)
@@ -1742,25 +1923,6 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("IoT Connection Test:", testResult);
     if (testResult.config) {
       console.log("E-Ra Config:", testResult.config);
-    }
-  });
-
-  // Statistics updates
-  socket.on("statsUpdate", (statistics) => {
-    console.log("Cập nhật thống kê:", statistics);
-    localDataStore.statistics = statistics;
-    renderStatisticsChart(statistics);
-
-    if (statUser1) {
-      const user1Stats = Object.values(statistics.compliance)[0] || 0;
-      statUser1.textContent = `${user1Stats}%`;
-      if (statBar1) statBar1.style.width = `${user1Stats}%`;
-    }
-
-    if (statUser2) {
-      const user2Stats = Object.values(statistics.compliance)[1] || 0;
-      statUser2.textContent = `${user2Stats}%`;
-      if (statBar2) statBar2.style.width = `${user2Stats}%`;
     }
   });
 
@@ -1967,12 +2129,21 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
+      // Check if medicines are selected
+      if (selectedMedicines.length === 0) {
+        showNotification("Vui lòng thêm ít nhất một loại thuốc!", "error");
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.innerHTML = "<span>Lưu lịch uống thuốc</span>";
+        }
+        return;
+      }
+
       if (
         !scheduleData.userId ||
         selectedWeekdays.length === 0 ||
         !scheduleData.period ||
-        !scheduleData.usageDuration ||
-        selectedMedicines.length === 0
+        !scheduleData.usageDuration
       ) {
         showNotification("Vui lòng điền đầy đủ thông tin!", "error");
         if (submitButton) {

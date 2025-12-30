@@ -484,12 +484,14 @@ header .header-info {
   font-size: 0.744rem;
   color: var(--text-primary);
   margin-bottom: var(--spacing-xs);
+  word-wrap: break-word;
 }
 .timeline-content .medication {
   font-size: 0.656rem;
   color: var(--text-secondary);
   margin: var(--spacing-xs) 0;
   font-weight: var(--font-weight-medium);
+  word-wrap: break-word;
 }
 .timeline-status {
   padding: var(--spacing-xs) var(--spacing-sm);
@@ -1584,25 +1586,142 @@ select:focus {
   color: white;
 }
 
-/* Duration Input Group */
+/* Duration Input Group - Enhanced Visualization */
 .duration-input-group {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+  align-items: stretch;
+  position: relative;
+  background: var(--surface-color);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  transition: all var(--transition-normal);
+  overflow: hidden;
+}
+
+.duration-input-group:hover {
+  border-color: var(--text-muted);
+  box-shadow: var(--glass-shadow);
+}
+
+.duration-input-group:focus-within {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  transform: translateY(-1px);
 }
 
 .duration-input-group input {
   flex: 1;
-  min-width: 80px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: var(--spacing-md);
+  font-size: 1.1rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  text-align: center;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Remove spinner for number input */
+.duration-input-group input::-webkit-outer-spin-button,
+.duration-input-group input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.duration-input-group input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 .duration-unit {
-  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--spacing-lg);
   background: var(--background-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-sm);
-  font-weight: var(--font-weight-medium);
+  border-left: 1px solid var(--border-color);
   color: var(--text-secondary);
+  font-weight: var(--font-weight-semibold);
+  font-size: 0.95rem;
+  transition: var(--transition-normal);
+  white-space: nowrap;
+}
+
+.duration-input-group:focus-within .duration-unit {
+  background: var(--primary-color);
+  color: white;
+  border-left-color: var(--primary-color);
+}
+
+/* Medicine Input Fields - Enhanced Visualization */
+#medicine-quantity-input,
+#medicine-threshold-input {
+  padding: var(--spacing-md);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 1.1rem;
+  font-family: inherit;
+  background: var(--surface-color);
+  color: var(--text-primary);
+  transition: var(--transition-normal);
+  font-weight: var(--font-weight-bold);
+  text-align: center;
+}
+
+/* Remove spinner for number inputs */
+#medicine-quantity-input::-webkit-outer-spin-button,
+#medicine-quantity-input::-webkit-inner-spin-button,
+#medicine-threshold-input::-webkit-outer-spin-button,
+#medicine-threshold-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#medicine-quantity-input[type=number],
+#medicine-threshold-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+#medicine-quantity-input:hover,
+#medicine-threshold-input:hover {
+  border-color: var(--text-muted);
+  box-shadow: var(--glass-shadow);
+}
+
+#medicine-quantity-input:focus,
+#medicine-threshold-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+#medicine-instructions-input {
+  padding: var(--spacing-md);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+  font-family: inherit;
+  background: var(--surface-color);
+  color: var(--text-primary);
+  transition: var(--transition-normal);
+  font-weight: var(--font-weight-medium);
+  resize: vertical;
+  min-height: 80px;
+}
+
+#medicine-instructions-input:hover {
+  border-color: var(--text-muted);
+  box-shadow: var(--glass-shadow);
+}
+
+#medicine-instructions-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  background: var(--surface-hover);
+  transform: translateY(-1px);
 }
 
 /* Selected Medicines Tags */
@@ -1922,4 +2041,36 @@ select:focus {
     box-shadow: none;
     border: 1px solid var(--border-color);
   }
+}
+
+/* --- Delete Button Styles --- */
+.delete-medicine-btn,
+.delete-inventory-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-medicine-btn:hover,
+.delete-inventory-btn:hover {
+  color: var(--danger-color);
+  background-color: rgba(220, 38, 38, 0.1);
+  transform: scale(1.1);
+}
+
+.delete-medicine-btn svg,
+.delete-inventory-btn svg {
+  transition: fill 0.2s ease;
+}
+
+.delete-medicine-btn:hover svg,
+.delete-inventory-btn:hover svg {
+  fill: rgba(220, 38, 38, 0.2);
 }

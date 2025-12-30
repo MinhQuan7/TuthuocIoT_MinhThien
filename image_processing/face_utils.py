@@ -68,16 +68,23 @@ class FaceRecognizer:
                     
                     # Download images
                     for i, avatar_url in enumerate(avatars):
-                        # Assuming avatar_url is relative path like /assets/...
-                        full_url = f"{self.server_url}{avatar_url}"
+                        # Handle both relative paths and full URLs (Google Drive)
+                        if avatar_url.startswith('http'):
+                            full_url = avatar_url
+                        else:
+                            full_url = f"{self.server_url}{avatar_url}"
+                            
                         filename = f"face_{i}.jpg"
                         file_path = os.path.join(user_path, filename)
                         
                         if not os.path.exists(file_path):
                             print(f"Downloading {full_url}...")
-                            img_data = requests.get(full_url).content
-                            with open(file_path, 'wb') as handler:
-                                handler.write(img_data)
+                            try:
+                                img_data = requests.get(full_url).content
+                                with open(file_path, 'wb') as handler:
+                                    handler.write(img_data)
+                            except Exception as e:
+                                print(f"Failed to download {full_url}: {e}")
                 
                 # Reload faces after sync
                 self.load_known_faces()
@@ -92,7 +99,7 @@ class FaceRecognizer:
     def recognize_face(self, frame):
         """
         Detects and recognizes faces in a frame.
-        Returns a list of detected user IDs.
+        Returns a list of detected user IDs, names, and face locations.
         """
         small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
         rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
@@ -101,6 +108,7 @@ class FaceRecognizer:
         face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
         detected_ids = []
+        detected_names = []
 
         for face_encoding in face_encodings:
             matches = face_recognition.compare_faces(self.known_face_encodings, face_encoding, tolerance=0.5)
@@ -114,5 +122,10 @@ class FaceRecognizer:
                     name = self.known_face_names[best_match_index]
                     user_id = self.known_face_ids[best_match_index]
                     detected_ids.append(user_id)
+                    detected_names.append(name)
+                else:
+                    detected_names.append("Unknown")
+            else:
+                detected_names.append("Unknown")
 
-        return detected_ids, face_locations
+        return detected_ids, detected_names, face_locations

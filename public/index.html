@@ -242,8 +242,42 @@
           <section class="card alerts-card">
             <div class="card-header">
               <span>Cảnh báo & Tồn kho</span>
-              <div class="card-header-badge">
-                <span class="alert-count" id="alert-count">0</span>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <button
+                  id="clear-alerts-btn"
+                  style="
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    color: #ef4444;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                  title="Xóa tất cả cảnh báo"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path
+                      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                    ></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
+                </button>
+                <div class="card-header-badge">
+                  <span class="alert-count" id="alert-count">0</span>
+                </div>
               </div>
             </div>
             <ul class="alert-list" id="alert-list">
@@ -252,6 +286,20 @@
                 <div>Không có cảnh báo nào!</div>
               </li>
             </ul>
+            <div
+              class="card-footer-action"
+              id="alert-expand-container"
+              style="
+                display: none;
+                text-align: center;
+                padding: 10px;
+                cursor: pointer;
+                color: #3b82f6;
+                font-weight: 500;
+              "
+            >
+              <span id="alert-expand-btn">Xem thêm</span>
+            </div>
           </section>
           <section class="card timeline-card">
             <div class="card-header">
@@ -274,31 +322,8 @@
                 <span class="stats-avg" id="stats-average">--</span>
               </div>
             </div>
-            <div class="stats-user">
-              <div class="stats-header">
-                <span class="user-name">Ông (User 1)</span>
-                <span class="percentage" id="stat-user-1">--%</span>
-              </div>
-              <div class="progress-bar">
-                <div
-                  class="progress-bar-inner"
-                  id="stat-bar-1"
-                  style="width: 0%"
-                ></div>
-              </div>
-            </div>
-            <div class="stats-user">
-              <div class="stats-header">
-                <span class="user-name">Bà (User 2)</span>
-                <span class="percentage" id="stat-user-2">--%</span>
-              </div>
-              <div class="progress-bar">
-                <div
-                  class="progress-bar-inner low"
-                  id="stat-bar-2"
-                  style="width: 0%"
-                ></div>
-              </div>
+            <div id="stats-users-container">
+              <!-- User stats will be injected here -->
             </div>
           </section>
         </div>
@@ -402,11 +427,7 @@
               <label for="medicine-category-select">
                 <span>Danh mục thuốc:</span>
               </label>
-              <select
-                id="medicine-category-select"
-                name="medicineCategory"
-                required
-              >
+              <select id="medicine-category-select" name="medicineCategory">
                 <option value="">Chọn loại thuốc...</option>
                 <option value="pain-relief">Thuốc giảm đau</option>
                 <option value="cold-flu">Thuốc cảm cúm</option>
@@ -429,7 +450,6 @@
                 id="medicine-name-input"
                 name="medicineName"
                 placeholder="Ví dụ: Paracetamol 500mg"
-                required
               />
             </div>
 

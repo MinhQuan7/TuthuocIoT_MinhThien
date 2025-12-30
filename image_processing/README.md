@@ -1,112 +1,135 @@
-# Hướng dẫn Cài đặt & Chạy Module Xử lý Hình ảnh (Image Processing)
+# Tủ Thuốc AIoT - Hệ Thống Quản Lý & Nhận Diện Khuôn Mặt
 
-Module này đảm nhiệm chức năng nhận diện khuôn mặt sử dụng Camera, phục vụ cho tính năng điểm danh hoặc xác thực người dùng trên thiết bị Tủ Thuốc AIoT.
+Dự án Tủ Thuốc Thông Minh tích hợp AIoT, bao gồm Web Server quản lý, Module nhận diện khuôn mặt (chạy trên Raspberry Pi/Laptop), và tích hợp Google Drive để lưu trữ ảnh người dùng.
 
-## 1. Yêu cầu hệ thống (Prerequisites)
+## 📖 Luồng Hoạt Động (Operational Flow)
 
-- **Python**: Phiên bản 3.8 đến 3.11 (Khuyên dùng 3.10).
-- **CMake**: Cần thiết để biên dịch thư viện `dlib` (thư viện nền của `face_recognition`).
-- **Visual Studio Build Tools** (Đối với Windows): Cần cài đặt "Desktop development with C++" để biên dịch `dlib`.
+Hệ thống hoạt động theo quy trình đồng bộ dữ liệu chặt chẽ để đảm bảo tính nhất quán giữa Web quản lý và thiết bị nhận diện tại tủ thuốc:
 
-## 2. Cài đặt Môi trường (Windows)
+1.  **Thêm Người Dùng & Chụp Ảnh:**
 
-### Bước 1: Cài đặt các công cụ cần thiết
+    - Quản trị viên truy cập Web Interface.
+    - Thêm người dùng mới và chụp 5 ảnh mẫu (hoặc tải ảnh lên).
+    - Khi bấm **Lưu**, ảnh sẽ được gửi lên **Google Drive** thông qua Google Apps Script.
 
-1.  **Python**: Tải và cài đặt từ [python.org](https://www.python.org/). Nhớ tích chọn **"Add Python to PATH"**.
-2.  **CMake**: Tải và cài đặt từ [cmake.org](https://cmake.org/download/). Chọn **"Add CMake to the system PATH"** khi cài đặt.
-3.  **Visual Studio Build Tools**:
-    - Tải từ [Visual Studio Downloads](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
-    - Khi cài đặt, chọn workload **"Desktop development with C++"**.
+2.  **Lưu Trữ & Thông Báo:**
 
-### Bước 2: Thiết lập thư mục dự án
+    - Web Server (Node.js) nhận lại link ảnh từ Google Drive và lưu thông tin người dùng vào cơ sở dữ liệu.
+    - Ngay lập tức, Web Server gửi tín hiệu đến **Module AI (Python)** thông qua API `/sync-faces`.
 
-Mở Terminal (Command Prompt hoặc PowerShell) và di chuyển vào thư mục `image_processing`:
+3.  **Đồng Bộ Dữ Liệu Xuống Thiết Bị (Raspberry Pi):**
 
-```bash
-cd image_processing
-```
+    - Module AI nhận tín hiệu, tự động tải ảnh từ các link Google Drive về thư mục `known_faces` trên thiết bị.
+    - Hệ thống tự động cập nhật lại model nhận diện mà không cần khởi động lại.
 
-### Bước 3: Tạo môi trường ảo (Virtual Environment)
+4.  **Nhận Diện & Điểm Danh:**
+    - Khi người dùng đứng trước camera tủ thuốc, Module AI nhận diện khuôn mặt.
+    - Tên người dùng (Tiếng Việt) được hiển thị trực tiếp trên màn hình (Video Stream).
+    - Nếu nhận diện đúng, hệ thống gửi xác nhận về Web Server để ghi nhận lịch sử uống thuốc/điểm danh.
 
-Khuyên dùng môi trường ảo để tránh xung đột thư viện:
+---
 
-```bash
-python -m venv venv
-```
+## 🛠️ Hướng Dẫn Cài Đặt (Installation)
 
-Kích hoạt môi trường ảo:
+### 1. Yêu Cầu Hệ Thống
 
-- **Windows (Command Prompt):**
-  ```cmd
-  venv\Scripts\activate
-  ```
-- **Windows (PowerShell):**
-  ```powershell
-  .\venv\Scripts\Activate
-  ```
-- **Linux/MacOS:**
-  ```bash
-  source venv/bin/activate
-  ```
+- **Node.js**: v14 trở lên.
+- **Python**: v3.8 - v3.11 (Khuyên dùng 3.10).
+- **CMake** & **Visual Studio Build Tools** (nếu chạy trên Windows để build thư viện `dlib`).
 
-### Bước 4: Cài đặt thư viện
+### 2. Cài Đặt Web Server (Node.js)
 
-Chạy lệnh sau để cài đặt các thư viện từ `requirements.txt`:
+Tại thư mục gốc (`GIAODIENWEB/GIAODIENWEB`):
 
-```bash
-pip install -r requirements.txt
-```
-
-> **Lưu ý nếu gặp lỗi cài đặt `dlib`:**
-> Nếu lệnh trên thất bại ở bước cài `dlib` hoặc `face_recognition`, hãy thử cài thủ công `dlib` trước:
->
-> ```bash
-> pip install cmake
-> pip install dlib
-> ```
->
-> Sau đó chạy lại lệnh `pip install -r requirements.txt`.
-
-## 3. Cấu hình (Configuration)
-
-1.  Copy file `.env.example` thành `.env`:
+1.  Cài đặt các thư viện:
     ```bash
-    copy .env.example .env
+    npm install
     ```
-2.  Mở file `.env` và chỉnh sửa các thông số nếu cần:
-    - `SERVER_URL`: Địa chỉ của Web Server chính (mặc định `http://localhost:3000`).
-    - `DEVICE_ID`: ID định danh của thiết bị (ví dụ: `rasp_pi_01`).
-    - `CHECKIN_DURATION`: Thời gian (giây) cho mỗi phiên quét khuôn mặt (mặc định `3600`).
-    - `CAMERA_INDEX`: Chỉ số của Camera (0 là camera mặc định/webcam, 1 là camera gắn ngoài).
+2.  Cấu hình Google Apps Script (nếu chưa làm):
+    - Làm theo hướng dẫn trong file `google_apps_script_upload.txt`.
+    - Cập nhật URL Script vào file `public/client.js` (biến `GOOGLE_APPS_SCRIPT_URL`).
 
-## 4. Chạy ứng dụng
+### 3. Cài Đặt Module AI (Python)
 
-Đảm bảo Web Server chính (Node.js) đang chạy trước. Sau đó chạy lệnh:
+Tại thư mục `image_processing`:
+
+1.  Tạo môi trường ảo (khuyên dùng):
+    ```bash
+    python -m venv venv
+    # Windows:
+    .\venv\Scripts\activate
+    # Linux/Mac:
+    source venv/bin/activate
+    ```
+2.  Cài đặt thư viện:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+    _Lưu ý: File `requirements.txt` đã bao gồm: `opencv-python`, `flask`, `face_recognition`, `requests`, `python-dotenv`, `Pillow` (hỗ trợ font tiếng Việt)._
+
+3.  Cấu hình file `.env` (trong thư mục `image_processing`):
+    Tạo file `.env` với nội dung:
+    ```env
+    SERVER_URL=http://localhost:3000
+    CHECKIN_DURATION=3600
+    CAMERA_INDEX=0
+    ```
+
+---
+
+## 🚀 Hướng Dẫn Sử Dụng (Usage)
+
+Bạn cần chạy song song cả 2 dịch vụ:
+
+### Bước 1: Khởi động Web Server
+
+Mở terminal tại thư mục gốc:
+
+```bash
+npm start
+# Hoặc nếu dùng nodemon:
+npm run dev
+```
+
+_Server sẽ chạy tại: `http://localhost:3000`_
+
+### Bước 2: Khởi động Module AI
+
+Mở terminal mới, trỏ vào thư mục `image_processing` (đảm bảo đã activate venv):
 
 ```bash
 python main.py
 ```
 
-Nếu thấy thông báo server Flask khởi động (thường ở port 5000), nghĩa là module đã sẵn sàng nhận lệnh từ Web Server.
+_AI Server sẽ chạy tại: `http://localhost:5000`_
 
-## 5. Troubleshooting (Sửa lỗi thường gặp)
+### Bước 3: Kiểm Tra
 
-- **Lỗi `ModuleNotFoundError: No module named 'face_recognition'`**:
+1.  Truy cập Web `http://localhost:3000` để quản lý người dùng.
+2.  Xem Video Stream từ Camera tại: `http://localhost:5000/video_feed`.
+3.  Thử thêm một người dùng mới và quan sát Terminal của Python để thấy quá trình tải ảnh từ Drive về.
 
-  - Đảm bảo bạn đã kích hoạt môi trường ảo (`venv`) trước khi chạy.
-  - Kiểm tra lại quá trình cài đặt `dlib`.
+---
 
-- **Lỗi không mở được Camera**:
+## ⚠️ Các Vấn Đề Thường Gặp (Troubleshooting)
 
-  - Kiểm tra quyền truy cập Camera trên Windows/Linux.
-  - Thử thay đổi `CAMERA_INDEX` trong file `.env` thành `1` hoặc `-1`.
+1.  **Lỗi Font Tiếng Việt trên Camera:**
 
-- **Lỗi kết nối tới Server**:
-  - Kiểm tra `SERVER_URL` trong `.env`.
-  - Đảm bảo Server Node.js đang chạy cùng mạng.
+    - Đảm bảo đã cài thư viện `Pillow`: `pip install Pillow`.
+    - Hệ thống sẽ tự động tìm font `arial.ttf` (Windows) hoặc `DejaVuSans.ttf` (Linux/Pi). Nếu không thấy, nó sẽ dùng font mặc định (không dấu).
 
-## 6. Cấu trúc thư mục
+2.  **Không tải được ảnh từ Drive:**
 
-- `main.py`: File chính khởi chạy Flask server và luồng xử lý camera.
-- `face_utils.py`: Chứa các hàm xử lý nhận diện khuôn mặt, tải ảnh từ server.
-- `requirements.txt`: Danh sách thư viện cần thiết.
+    - Kiểm tra quyền truy cập của file trên Drive (phải là "Anyone with the link" hoặc "Public").
+    - Kiểm tra kết nối mạng của Raspberry Pi.
+
+3.  **Lỗi cài đặt `dlib` / `face_recognition`:**
+
+    - Trên Windows: Cần cài đặt **Visual Studio C++ Build Tools** và **CMake**.
+    - Trên Raspberry Pi: Chạy `sudo apt-get install cmake libopenblas-dev liblapack-dev libjpeg-dev`.
+
+4.  **Camera không lên hình:**
+    - Kiểm tra `CAMERA_INDEX` trong file `.env`. Thử đổi thành `0`, `1`, hoặc `-1`.
+    - Đảm bảo không có ứng dụng nào khác đang chiếm dụng camera.
