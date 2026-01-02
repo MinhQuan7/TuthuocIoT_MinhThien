@@ -31,11 +31,28 @@ class MongoDataManager extends DataManager {
         return;
       }
 
-      await mongoose.connect(process.env.MONGODB_URI);
+      // Add connection options for better stability
+      await mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+        socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+      });
+
       this.isConnected = true;
       console.log("[MongoDataManager] Connected to MongoDB Atlas successfully");
+
+      // Handle connection events
+      mongoose.connection.on("error", (err) => {
+        console.error("[MongoDataManager] Runtime connection error:", err);
+        this.isConnected = false;
+      });
+
+      mongoose.connection.on("disconnected", () => {
+        console.warn("[MongoDataManager] Disconnected from MongoDB");
+        this.isConnected = false;
+      });
     } catch (error) {
       console.error("[MongoDataManager] MongoDB connection error:", error);
+      this.isConnected = false;
     }
   }
 

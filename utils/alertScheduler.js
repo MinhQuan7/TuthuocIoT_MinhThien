@@ -203,13 +203,13 @@ class AlertScheduler {
 
       if (iotSuccess) {
         console.log(
-          `[AlertScheduler] ✅ IoT alert sent successfully for ${user.name} - ${medicine.name}`
+          `[AlertScheduler] IoT alert sent successfully for ${user.name} - ${medicine.name}`
         );
 
         // Add success alert to system
         await this.dataManager.addAlert({
           type: "success",
-          message: `🔔 Alert tự động: ${user.name} cần uống ${
+          message: `Alert tự động: ${user.name} cần uống ${
             medicine.name
           } - IoT đã được kích hoạt! ${
             piSuccess ? "(Camera ON)" : "(Camera Error)"
@@ -218,13 +218,13 @@ class AlertScheduler {
         });
       } else {
         console.error(
-          `[AlertScheduler] ❌ IoT alert failed for ${user.name} - ${medicine.name}`
+          `[AlertScheduler] IoT alert failed for ${user.name} - ${medicine.name}`
         );
 
         // Add error alert to system
         await this.dataManager.addAlert({
           type: "warning",
-          message: `⚠️ Alert tự động: ${user.name} cần uống ${medicine.name} - Lỗi kết nối IoT!`,
+          message: `Alert tự động: ${user.name} cần uống ${medicine.name} - Lỗi kết nối IoT!`,
           priority: "high",
         });
       }

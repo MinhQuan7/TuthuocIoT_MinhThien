@@ -1031,21 +1031,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // (Giữ nguyên hàm renderUserList)
   function renderUserList(users) {
-    console.log("🔄 Rendering user list with data:", users);
+    console.log("Rendering user list with data:", users);
     if (!userList) {
-      console.warn("⚠️ userList element not found");
+      console.warn("userList element not found");
       return;
     }
 
     userList.innerHTML = "";
 
     if (!users || users.length === 0) {
-      console.log("📝 No users found, showing empty message");
+      console.log("No users found, showing empty message");
       userList.innerHTML = "<li class='no-data'>Không có người dùng nào.</li>";
       return;
     }
 
-    console.log(`👥 Rendering ${users.length} users`);
+    console.log(`Rendering ${users.length} users`);
     users.forEach((user, index) => {
       console.log(`Rendering user ${index + 1}:`, user);
       userList.innerHTML += `
@@ -1070,14 +1070,14 @@ document.addEventListener("DOMContentLoaded", function () {
             `;
     });
 
-    console.log("✅ User list rendered successfully");
+    console.log("User list rendered successfully");
   }
 
   // (Giữ nguyên hàm renderUserDropdown)
   function renderUserDropdown(users) {
-    console.log("🔄 Rendering user dropdown with data:", users);
+    console.log("Rendering user dropdown with data:", users);
     if (!userSelectDropdown) {
-      console.warn("⚠️ userSelectDropdown element not found");
+      console.warn("userSelectDropdown element not found");
       return;
     }
 
@@ -1085,13 +1085,13 @@ document.addEventListener("DOMContentLoaded", function () {
       "<option value=''>Chọn người dùng...</option>";
 
     if (!users || users.length === 0) {
-      console.log("📝 No users found for dropdown");
+      console.log("No users found for dropdown");
       userSelectDropdown.innerHTML +=
         "<option disabled>Chưa có người dùng</option>";
       return;
     }
 
-    console.log(`👥 Adding ${users.length} users to dropdown`);
+    console.log(`Adding ${users.length} users to dropdown`);
     users.forEach((user, index) => {
       console.log(`Adding user ${index + 1} to dropdown:`, user);
       userSelectDropdown.innerHTML += `
@@ -1099,7 +1099,7 @@ document.addEventListener("DOMContentLoaded", function () {
             `;
     });
 
-    console.log("✅ User dropdown rendered successfully");
+    console.log("User dropdown rendered successfully");
   }
 
   // Medicine inventory dashboard
@@ -1569,10 +1569,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Render all components với logging để debug
-    console.log("🔄 Rendering initial data components...");
-    console.log("📊 Users data:", data.users);
-    console.log("💊 Medicines data:", data.medicines);
-    console.log("📅 Schedules data:", data.schedules);
+    console.log("Rendering initial data components...");
+    console.log("Users data:", data.users);
+    console.log("Medicines data:", data.medicines);
+    console.log("Schedules data:", data.schedules);
 
     renderScheduleList(data.schedules || []);
     renderUserList(data.users || []);
@@ -1600,7 +1600,7 @@ document.addEventListener("DOMContentLoaded", function () {
       alertCount.textContent = unreadAlerts.length;
     }
 
-    console.log("✅ Initial data rendering completed!");
+    console.log("Initial data rendering completed!");
     showNotification("Hệ thống đã khởi động thành công!", "success", 3000);
   });
 

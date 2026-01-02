@@ -46,7 +46,7 @@ eraIotClient
       console.log(" [E-Ra IoT] Connection established successfully");
     } else {
       console.warn(
-        "⚠️ [E-Ra IoT] Connection test failed - IoT features may not work properly"
+        "[E-Ra IoT] Connection test failed - IoT features may not work properly"
       );
       console.warn("   - Check internet connection and E-Ra server status");
       console.warn(
@@ -55,7 +55,7 @@ eraIotClient
     }
   })
   .catch((error) => {
-    console.error("❌ [E-Ra IoT] Connection test error:", error.message);
+    console.error("[E-Ra IoT] Connection test error:", error.message);
     console.warn(
       "   - IoT functionality will be limited until connection is restored"
     );
@@ -395,7 +395,7 @@ const checkPendingReminders = async () => {
             // Create success reminder alert
             await dataManager.addAlert({
               type: "success",
-              message: `🔔 Đến giờ uống thuốc! ${user.name} cần uống ${medicine.name} (${medicine.dosage}) - ${periodDisplay}. Tủ thuốc đang phát cảnh báo LED + còi.`,
+              message: `Đến giờ uống thuốc! ${user.name} cần uống ${medicine.name} (${medicine.dosage}) - ${periodDisplay}. Tủ thuốc đang phát cảnh báo LED + còi.`,
               priority: "high",
             });
 
@@ -406,7 +406,7 @@ const checkPendingReminders = async () => {
             // Create warning if IoT failed but still notify
             await dataManager.addAlert({
               type: "warning",
-              message: `⏰ Đến giờ uống thuốc! ${user.name} cần uống ${medicine.name} (${medicine.dosage}) - ${periodDisplay}. ⚠️ Lỗi kết nối tủ thuốc IoT!`,
+              message: `Đến giờ uống thuốc! ${user.name} cần uống ${medicine.name} (${medicine.dosage}) - ${periodDisplay}. Lỗi kết nối tủ thuốc IoT!`,
               priority: "high",
             });
 
@@ -451,7 +451,7 @@ const monitorSystemHealth = async () => {
       if (medicine.quantity <= medicine.minThreshold) {
         await dataManager.addAlert({
           type: "danger",
-          message: `⚠️ Thuốc ${medicine.name} sắp hết! Còn lại ${medicine.quantity} viên`,
+          message: `Thuốc ${medicine.name} sắp hết! Còn lại ${medicine.quantity} viên`,
           priority: "high",
         });
       }
@@ -469,13 +469,13 @@ const monitorSystemHealth = async () => {
         if (daysToExpiry <= 7 && daysToExpiry > 0) {
           await dataManager.addAlert({
             type: "warning",
-            message: `📅 Thuốc ${medicine.name} sẽ hết hạn trong ${daysToExpiry} ngày`,
+            message: `Thuốc ${medicine.name} sẽ hết hạn trong ${daysToExpiry} ngày`,
             priority: "medium",
           });
         } else if (daysToExpiry <= 0) {
           await dataManager.addAlert({
             type: "danger",
-            message: `🚫 Thuốc ${medicine.name} đã hết hạn sử dụng!`,
+            message: `Thuốc ${medicine.name} đã hết hạn sử dụng!`,
             priority: "high",
           });
         }
@@ -667,7 +667,7 @@ app.post("/api/checkin/confirm", async (req, res) => {
       // Create Alert Message
       const statusText = checkInStatus === "taken" ? "Đúng giờ" : "Trễ";
       const alertType = checkInStatus === "taken" ? "success" : "warning";
-      const message = `✅ Đã xác nhận: ${user.name} đã uống thuốc (${medicineName}) - ${statusText}!`;
+      const message = `Đã xác nhận: ${user.name} đã uống thuốc (${medicineName}) - ${statusText}!`;
 
       // Add alert
       await dataManager.addAlert({
@@ -718,7 +718,7 @@ process.on("unhandledRejection", (error) => {
 
 // === GRACEFUL SHUTDOWN ===
 process.on("SIGTERM", async () => {
-  console.log("📴 Đang tắt server...");
+  console.log("Đang tắt server...");
 
   // Cleanup AlertScheduler
   if (alertScheduler) {
@@ -726,7 +726,7 @@ process.on("SIGTERM", async () => {
   }
 
   server.close(() => {
-    console.log("✅ Server đã tắt thành công");
+    console.log("Server đã tắt thành công");
     process.exit(0);
   });
 });
@@ -741,15 +741,15 @@ server.listen(PORT, HOST, async () => {
   // Initialize data on startup và verify data
   try {
     const initialData = await dataManager.loadData();
-    console.log("📊 Dữ liệu hệ thống đã được khởi tạo:");
-    console.log(`   👥 Users: ${initialData.users?.length || 0}`);
-    console.log(`   💊 Medicines: ${initialData.medicines?.length || 0}`);
-    console.log(`   📅 Schedules: ${initialData.schedules?.length || 0}`);
-    console.log(`   🚨 Alerts: ${initialData.alerts?.length || 0}`);
+    console.log("Dữ liệu hệ thống đã được khởi tạo:");
+    console.log(`   Users: ${initialData.users?.length || 0}`);
+    console.log(`   Medicines: ${initialData.medicines?.length || 0}`);
+    console.log(`   Schedules: ${initialData.schedules?.length || 0}`);
+    console.log(`   Alerts: ${initialData.alerts?.length || 0}`);
 
     // Log user details if any exist
     if (initialData.users && initialData.users.length > 0) {
-      console.log("👥 Existing users:");
+      console.log("Existing users:");
       initialData.users.forEach((user, index) => {
         console.log(
           `   ${index + 1}. ${user.name} (ID: ${user.id}) - Created: ${
@@ -760,15 +760,15 @@ server.listen(PORT, HOST, async () => {
     }
 
     // Initialize AlertScheduler
-    console.log("🔔 Initializing automatic alert system...");
+    console.log("Initializing automatic alert system...");
     await alertScheduler.initialize();
     const schedulerStatus = alertScheduler.getStatus();
     console.log(
-      `📋 AlertScheduler: ${schedulerStatus.activeAlerts} active alerts scheduled`
+      `AlertScheduler: ${schedulerStatus.activeAlerts} active alerts scheduled`
     );
 
-    console.log("✅ Server initialization completed successfully!");
+    console.log("Server initialization completed successfully!");
   } catch (error) {
-    console.error("❌ Lỗi khởi tạo dữ liệu:", error);
+    console.error("Lỗi khởi tạo dữ liệu:", error);
   }
 });
