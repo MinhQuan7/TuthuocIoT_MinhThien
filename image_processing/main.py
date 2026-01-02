@@ -3,6 +3,7 @@ import time
 import cv2
 import threading
 import requests
+import socketio
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, request, jsonify, Response
@@ -21,6 +22,49 @@ face_recognizer = FaceRecognizer(SERVER_URL)
 is_checking_in = False
 checkin_thread = None
 stop_checkin_event = threading.Event()
+
+# Socket.IO Client
+sio = socketio.Client()
+
+@sio.event
+def connect():
+    print("✅ Connected to Web Server via Socket.IO")
+
+@sio.event
+def connect_error(data):
+    print(f"❌ Socket connection failed: {data}")
+
+@sio.event
+def disconnect():
+    print("⚠️ Disconnected from Web Server")
+
+@sio.event
+def syncFacesRequest(data):
+    print(f"🔄 Received sync request from Server: {data}")
+    # Trigger face reload in a separate thread to not block socket
+    threading.Thread(target=reload_faces_task).start()
+
+def reload_faces_task():
+    print("Starting face sync task...")
+    try:
+        success = face_recognizer.sync_faces_from_server()
+        if success:
+            print("✅ Face sync completed successfully")
+        else:
+            print("⚠️ Face sync failed")
+    except Exception as e:
+        print(f"❌ Error during face sync: {e}")
+
+def start_socket_client():
+    while True:
+        try:
+            print(f"Connecting to Socket.IO Server at {SERVER_URL}...")
+            sio.connect(SERVER_URL)
+            sio.wait()
+        except Exception as e:
+            print(f"❌ Socket connection error: {e}")
+            print("Retrying in 5 seconds...")
+            time.sleep(5)
 
 # Global camera variables
 camera = None
@@ -280,6 +324,11 @@ def sync_faces():
     return jsonify({"success": success}), 200
 
 if __name__ == '__main__':
+    # Start Socket.IO client in a background thread
+    socket_thread = threading.Thread(target=start_socket_client)
+    socket_thread.daemon = True
+    socket_thread.start()
+
     # Initial sync
     face_recognizer.sync_faces_from_server()
     app.run(host='0.0.0.0', port=5000, threaded=True)

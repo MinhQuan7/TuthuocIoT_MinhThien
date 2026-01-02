@@ -6,6 +6,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const DataManager = require("./models/dataManager");
+const MongoDataManager = require("./models/MongoDataManager");
 const EraIotClient = require("./utils/eraIotClient");
 const AlertScheduler = require("./utils/alertScheduler");
 const {
@@ -29,7 +30,11 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 
 // Initialize DataManager, E-Ra IoT Client và AlertScheduler
-const dataManager = new DataManager();
+// Use MongoDataManager if MONGODB_URI is present, otherwise fallback to file-based DataManager
+const dataManager = process.env.MONGODB_URI
+  ? new MongoDataManager()
+  : new DataManager();
+
 const eraIotClient = new EraIotClient();
 const alertScheduler = new AlertScheduler(dataManager);
 
@@ -247,18 +252,14 @@ io.on("connection", async (socket) => {
       broadcastToAll("userListUpdated", updatedData.users);
       broadcastToAll("statsUpdate", updatedData.statistics);
 
-      // Notify Python script (Raspberry Pi) to sync faces
+      // Notify Python script (Raspberry Pi) to sync faces via Socket.IO
       try {
-        const pythonUrl = process.env.PYTHON_API_URL || "http://localhost:5000";
-        console.log(`Triggering face sync at ${pythonUrl}...`);
-        fetch(`${pythonUrl}/sync-faces`, { method: "POST" })
-          .then((res) => res.json())
-          .then((data) =>
-            console.log("✅ Python sync triggered successfully:", data)
-          )
-          .catch((err) =>
-            console.error("⚠️ Failed to trigger Python sync:", err.message)
-          );
+        console.log("Triggering face sync via Socket.IO...");
+        // Emit event to all connected clients (including Python script)
+        io.emit("syncFacesRequest", {
+          userId: newUser.id,
+          action: "reload_faces",
+        });
       } catch (e) {
         console.error("Error triggering sync:", e);
       }

@@ -3,7 +3,8 @@ requests
 python-dotenv
 numpy
 flask
-dlib-bin
-face_recognition_models
+dlib
+face_recognition
 Click
 Pillow
+python-socketio[client]
