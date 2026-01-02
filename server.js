@@ -732,8 +732,9 @@ process.on("SIGTERM", async () => {
 });
 
 // === START SERVER ===
-server.listen(PORT, async () => {
-  console.log(` Tủ Thuốc AIoT Server đang chạy tại http://localhost:${PORT}`);
+const HOST = "0.0.0.0"; // Listen on all network interfaces for Render
+server.listen(PORT, HOST, async () => {
+  console.log(` Tủ Thuốc AIoT Server đang chạy tại http://${HOST}:${PORT}`);
   console.log(` Connected clients: ${connectedClients.size}`);
   console.log(` System ready for medicine management`);
 
