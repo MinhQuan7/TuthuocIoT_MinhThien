@@ -80,9 +80,12 @@ class FaceRecognizer:
                         if not os.path.exists(file_path):
                             print(f"Downloading {full_url}...")
                             try:
-                                img_data = requests.get(full_url).content
-                                with open(file_path, 'wb') as handler:
-                                    handler.write(img_data)
+                                resp = requests.get(full_url)
+                                if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type', ''):
+                                    with open(file_path, 'wb') as handler:
+                                        handler.write(resp.content)
+                                else:
+                                    print(f"Skipping {full_url}: Status {resp.status_code}, Type {resp.headers.get('Content-Type')}")
                             except Exception as e:
                                 print(f"Failed to download {full_url}: {e}")
                 

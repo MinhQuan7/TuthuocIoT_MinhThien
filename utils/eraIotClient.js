@@ -7,9 +7,9 @@ const https = require("https");
 class EraIotClient {
   constructor() {
     // E-Ra IoT Platform Configuration
-    this.authToken = "Token 78072b06a81e166b8b900d95f4c2ba1234272955";
+    this.authToken = "Token b027d04220a93e1fc1a91be8fcde195ab25bdcd6";
     this.baseUrl = "https://backend.eoh.io";
-    this.configId = "148698";
+    this.configId = "148699";
     this.actionOnKey = "cbfe9e98-669a-4fbf-a8d2-45c59c4aef4e";
     this.actionOffKey = "7c1ea8e2-3f7a-4db2-adcc-eeeed0576e36";
     this.initialized = true;

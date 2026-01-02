@@ -14,7 +14,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-SERVER_URL = os.getenv("SERVER_URL", "http://localhost:3000")
+SERVER_URL = os.getenv("SERVER_URL", "https://tuthuociot-minhthien.onrender.com")
 CHECKIN_DURATION = int(os.getenv("CHECKIN_DURATION", 3600)) # Seconds
 CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", 0))
 
@@ -28,19 +28,19 @@ sio = socketio.Client()
 
 @sio.event
 def connect():
-    print("✅ Connected to Web Server via Socket.IO")
+    print("Connected to Web Server via Socket.IO")
 
 @sio.event
 def connect_error(data):
-    print(f"❌ Socket connection failed: {data}")
+    print(f"Socket connection failed: {data}")
 
 @sio.event
 def disconnect():
-    print("⚠️ Disconnected from Web Server")
+    print("Disconnected from Web Server")
 
 @sio.event
 def syncFacesRequest(data):
-    print(f"🔄 Received sync request from Server: {data}")
+    print(f"Received sync request from Server: {data}")
     # Trigger face reload in a separate thread to not block socket
     threading.Thread(target=reload_faces_task).start()
 
@@ -49,11 +49,11 @@ def reload_faces_task():
     try:
         success = face_recognizer.sync_faces_from_server()
         if success:
-            print("✅ Face sync completed successfully")
+            print("Face sync completed successfully")
         else:
-            print("⚠️ Face sync failed")
+            print("Face sync failed")
     except Exception as e:
-        print(f"❌ Error during face sync: {e}")
+        print(f"Error during face sync: {e}")
 
 def start_socket_client():
     while True:
@@ -62,7 +62,7 @@ def start_socket_client():
             sio.connect(SERVER_URL)
             sio.wait()
         except Exception as e:
-            print(f"❌ Socket connection error: {e}")
+            print(f"Socket connection error: {e}")
             print("Retrying in 5 seconds...")
             time.sleep(5)
 
@@ -190,7 +190,7 @@ def send_checkin_request(user_id):
             else:
                 print(f"Server rejected check-in for user {user_id}: {data.get('message')}")
         else:
-             print(f"Server error: {response.status_code}")
+             print(f"Server error: {response.status_code} - {response.text}")
 
     except Exception as e:
         print(f"Failed to notify server: {e}")
