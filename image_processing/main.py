@@ -232,6 +232,10 @@ def camera_loop():
             # Draw using the last known locations and names
             frame = draw_faces_and_names(frame, last_face_locations, last_detected_names)
             
+            # Show video locally (X11/Display)
+            cv2.imshow("Tu thuoc AIoT - Face Recognition", frame)
+            cv2.waitKey(1)
+
             with camera_lock:
                 global_frame = frame.copy()
                 # print(f"Updated global_frame with frame {frame_count}") # Commented out to reduce log noise
@@ -244,6 +248,7 @@ def camera_loop():
         # time.sleep(0.01) # Optional: tiny sleep to prevent 100% CPU usage if needed, but usually CV2 waits for camera
 
     release_camera()
+    cv2.destroyAllWindows()
     is_checking_in = False
     print("Camera loop finished.")
 
@@ -298,19 +303,32 @@ def video_feed():
         
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/trigger-checkin', methods=['POST'])
-def trigger_checkin():
+def start_checkin_process():
+    """Helper function to start the check-in camera loop."""
     global is_checking_in, checkin_thread, stop_checkin_event
     
     if is_checking_in:
-        return jsonify({"status": "already_running"}), 200
+        print("Check-in already in progress.")
+        return False
     
+    print("Starting check-in process...")
     stop_checkin_event.clear()
     is_checking_in = True
     checkin_thread = threading.Thread(target=camera_loop)
     checkin_thread.start()
-    
-    return jsonify({"status": "started"}), 200
+    return True
+
+@sio.event
+def triggerCheckin(data):
+    print(f"Received triggerCheckin event from Server: {data}")
+    start_checkin_process()
+
+@app.route('/trigger-checkin', methods=['POST'])
+def trigger_checkin():
+    if start_checkin_process():
+        return jsonify({"status": "started"}), 200
+    else:
+        return jsonify({"status": "already_running"}), 200
 
 @app.route('/stop-checkin', methods=['POST'])
 def stop_checkin():

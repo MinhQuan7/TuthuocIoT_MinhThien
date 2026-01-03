@@ -36,7 +36,8 @@ const dataManager = process.env.MONGODB_URI
   : new DataManager();
 
 const eraIotClient = new EraIotClient();
-const alertScheduler = new AlertScheduler(dataManager);
+// Pass io instance to AlertScheduler for real-time communication with Pi
+const alertScheduler = new AlertScheduler(dataManager, io);
 
 // Test E-Ra IoT connection on startup
 eraIotClient

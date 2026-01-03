@@ -6,8 +6,9 @@ const http = require("http");
 const EraIotClient = require("./eraIotClient");
 
 class AlertScheduler {
-  constructor(dataManager) {
+  constructor(dataManager, io) {
     this.dataManager = dataManager;
+    this.io = io; // Socket.IO instance
     this.eraIotClient = new EraIotClient();
     this.scheduledTasks = new Map(); // Store active cron jobs
     this.isInitialized = false;
@@ -15,30 +16,26 @@ class AlertScheduler {
     console.log("[AlertScheduler] Service initialized");
   }
 
-  // Trigger Raspberry Pi Check-in
+  // Trigger Raspberry Pi Check-in via Socket.IO
   triggerRaspberryPi() {
     return new Promise((resolve) => {
-      // Configuration for Raspberry Pi
-      // In production, this should be loaded from config/env
-      const options = {
-        hostname: "localhost", // Change this to your Pi's IP address
-        port: 5000,
-        path: "/trigger-checkin",
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      };
-
-      const req = http.request(options, (res) => {
-        console.log(`[AlertScheduler] Pi Response: ${res.statusCode}`);
-        resolve(res.statusCode === 200);
-      });
-
-      req.on("error", (e) => {
-        console.error(`[AlertScheduler] Pi Connection Error: ${e.message}`);
+      if (!this.io) {
+        console.error("[AlertScheduler] Socket.IO not initialized");
         resolve(false);
-      });
+        return;
+      }
 
-      req.end();
+      console.log(
+        "[AlertScheduler] Emitting 'triggerCheckin' event to Raspberry Pi..."
+      );
+
+      // Emit event to all connected clients (including the Pi)
+      // In a more complex setup, you might want to target a specific socket ID
+      this.io.emit("triggerCheckin", { timestamp: Date.now() });
+
+      // Assume success if emitted, as we can't easily get an ack from a broadcast
+      // Alternatively, implement an acknowledgement callback if needed
+      resolve(true);
     });
   }
 

@@ -1,6 +1,7 @@
 import face_recognition
 import cv2
 import os
+import shutil
 import numpy as np
 import requests
 import json
@@ -49,12 +50,14 @@ class FaceRecognizer:
         print(f"Loaded {len(self.known_face_encodings)} face encodings.")
 
     def sync_faces_from_server(self):
-        """Downloads user images from the server."""
+        """Downloads user images from the server and removes deleted users."""
         print("Syncing faces from server...")
         try:
             response = requests.get(f"{self.server_url}/api/users/images")
             if response.status_code == 200:
                 users = response.json()
+                valid_user_dirs = set()
+
                 for user in users:
                     user_id = str(user['id'])
                     user_name = user['name']
@@ -62,6 +65,8 @@ class FaceRecognizer:
                     
                     # Create user directory
                     user_dir_name = f"{user_id}_{user_name}"
+                    valid_user_dirs.add(user_dir_name)
+                    
                     user_path = os.path.join(self.storage_path, user_dir_name)
                     if not os.path.exists(user_path):
                         os.makedirs(user_path)
@@ -88,6 +93,17 @@ class FaceRecognizer:
                                     print(f"Skipping {full_url}: Status {resp.status_code}, Type {resp.headers.get('Content-Type')}")
                             except Exception as e:
                                 print(f"Failed to download {full_url}: {e}")
+                
+                # Cleanup deleted users
+                if os.path.exists(self.storage_path):
+                    for item in os.listdir(self.storage_path):
+                        item_path = os.path.join(self.storage_path, item)
+                        if os.path.isdir(item_path) and item not in valid_user_dirs:
+                            print(f"Removing deleted user data: {item}")
+                            try:
+                                shutil.rmtree(item_path)
+                            except Exception as e:
+                                print(f"Error removing {item}: {e}")
                 
                 # Reload faces after sync
                 self.load_known_faces()
