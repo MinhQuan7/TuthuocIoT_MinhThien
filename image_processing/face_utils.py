@@ -5,6 +5,12 @@ import shutil
 import numpy as np
 import requests
 import json
+from datetime import datetime
+
+def log_serial(message):
+    """Logs a message with a timestamp to the console (serial output)."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] [SERIAL] {message}")
 
 class FaceRecognizer:
     def __init__(self, server_url, storage_path="known_faces"):
@@ -19,7 +25,7 @@ class FaceRecognizer:
 
     def load_known_faces(self):
         """Loads faces from local storage and encodes them."""
-        print("Loading known faces...")
+        log_serial("Loading known faces...")
         self.known_face_encodings = []
         self.known_face_names = []
         self.known_face_ids = []
@@ -31,7 +37,7 @@ class FaceRecognizer:
                 try:
                     user_id, user_name = user_dir.split("_", 1)
                 except ValueError:
-                    print(f"Skipping invalid directory name: {user_dir}")
+                    log_serial(f"Skipping invalid directory name: {user_dir}")
                     continue
 
                 for filename in os.listdir(user_path):
@@ -45,13 +51,13 @@ class FaceRecognizer:
                                 self.known_face_names.append(user_name)
                                 self.known_face_ids.append(user_id)
                         except Exception as e:
-                            print(f"Error processing {filename}: {e}")
+                            log_serial(f"Error processing {filename}: {e}")
         
-        print(f"Loaded {len(self.known_face_encodings)} face encodings.")
+        log_serial(f"Loaded {len(self.known_face_encodings)} face encodings.")
 
     def sync_faces_from_server(self):
         """Downloads user images from the server and removes deleted users."""
-        print("Syncing faces from server...")
+        log_serial("Syncing faces from server...")
         try:
             response = requests.get(f"{self.server_url}/api/users/images")
             if response.status_code == 200:
@@ -83,36 +89,36 @@ class FaceRecognizer:
                         file_path = os.path.join(user_path, filename)
                         
                         if not os.path.exists(file_path):
-                            print(f"Downloading {full_url}...")
+                            log_serial(f"Downloading {full_url}...")
                             try:
                                 resp = requests.get(full_url)
                                 if resp.status_code == 200 and 'image' in resp.headers.get('Content-Type', ''):
                                     with open(file_path, 'wb') as handler:
                                         handler.write(resp.content)
                                 else:
-                                    print(f"Skipping {full_url}: Status {resp.status_code}, Type {resp.headers.get('Content-Type')}")
+                                    log_serial(f"Skipping {full_url}: Status {resp.status_code}, Type {resp.headers.get('Content-Type')}")
                             except Exception as e:
-                                print(f"Failed to download {full_url}: {e}")
+                                log_serial(f"Failed to download {full_url}: {e}")
                 
                 # Cleanup deleted users
                 if os.path.exists(self.storage_path):
                     for item in os.listdir(self.storage_path):
                         item_path = os.path.join(self.storage_path, item)
                         if os.path.isdir(item_path) and item not in valid_user_dirs:
-                            print(f"Removing deleted user data: {item}")
+                            log_serial(f"Removing deleted user data: {item}")
                             try:
                                 shutil.rmtree(item_path)
                             except Exception as e:
-                                print(f"Error removing {item}: {e}")
+                                log_serial(f"Error removing {item}: {e}")
                 
                 # Reload faces after sync
                 self.load_known_faces()
                 return True
             else:
-                print(f"Failed to fetch users: {response.status_code}")
+                log_serial(f"Failed to fetch users: {response.status_code}")
                 return False
         except Exception as e:
-            print(f"Sync error: {e}")
+            log_serial(f"Sync error: {e}")
             return False
 
     def recognize_face(self, frame):

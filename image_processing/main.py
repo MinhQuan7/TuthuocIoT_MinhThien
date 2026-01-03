@@ -31,17 +31,22 @@ active_checkin_lock = threading.Lock()
 # Socket.IO Client
 sio = socketio.Client()
 
+def log_serial(message):
+    """Logs a message with a timestamp to the console (serial output)."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] [SERIAL] {message}")
+
 @sio.event
 def connect():
-    print("Connected to Web Server via Socket.IO")
+    log_serial("Connected to Web Server via Socket.IO")
 
 @sio.event
 def connect_error(data):
-    print(f"Socket connection failed: {data}")
+    log_serial(f"Socket connection failed: {data}")
 
 @sio.event
 def disconnect():
-    print("Disconnected from Web Server")
+    log_serial("Disconnected from Web Server")
 
 @sio.event
 def triggerCheckin(data):
@@ -50,38 +55,39 @@ def triggerCheckin(data):
     data: { scheduleId, userId, userName, medicineName, scheduledTime, timestamp }
     """
     global active_checkin_request
-    print(f"Received Check-in Trigger: {data}")
+    log_serial(f"Received Check-in Trigger: {data}")
     with active_checkin_lock:
         active_checkin_request = data
         # Optional: Set a timeout to clear this request if no one checks in after X hours?
         # For now, we keep it until replaced or fulfilled.
+    start_checkin_process()
 
 @sio.event
 def syncFacesRequest(data):
-    print(f"Received sync request from Server: {data}")
+    log_serial(f"Received sync request from Server: {data}")
     # Trigger face reload in a separate thread to not block socket
     threading.Thread(target=reload_faces_task).start()
 
 def reload_faces_task():
-    print("Starting face sync task...")
+    log_serial("Starting face sync task...")
     try:
         success = face_recognizer.sync_faces_from_server()
         if success:
-            print("Face sync completed successfully")
+            log_serial("Face sync completed successfully")
         else:
-            print("Face sync failed")
+            log_serial("Face sync failed")
     except Exception as e:
-        print(f"Error during face sync: {e}")
+        log_serial(f"Error during face sync: {e}")
 
 def start_socket_client():
     while True:
         try:
-            print(f"Connecting to Socket.IO Server at {SERVER_URL}...")
+            log_serial(f"Connecting to Socket.IO Server at {SERVER_URL}...")
             sio.connect(SERVER_URL)
             sio.wait()
         except Exception as e:
-            print(f"Socket connection error: {e}")
-            print("Retrying in 5 seconds...")
+            log_serial(f"Socket connection error: {e}")
+            log_serial("Retrying in 5 seconds...")
             time.sleep(5)
 
 # Global camera variables
@@ -96,15 +102,16 @@ CHECKIN_COOLDOWN = 60 # Seconds
 def get_camera():
     global camera
     if camera is None:
-        print(f"Opening camera index {CAMERA_INDEX}...")
+        log_serial(f"Opening camera index {CAMERA_INDEX}...")
         camera = cv2.VideoCapture(CAMERA_INDEX)
         if not camera.isOpened():
-            print(f"Error: Could not open camera index {CAMERA_INDEX}")
+            log_serial(f"Error: Could not open camera index {CAMERA_INDEX}")
     return camera
 
 def release_camera():
     global camera
     if camera is not None:
+        log_serial("Releasing camera...")
         camera.release()
         camera = None
 
@@ -154,7 +161,7 @@ def draw_faces_and_names(frame, face_locations, names):
             
         return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     except Exception as e:
-        print(f"Error drawing text: {e}")
+        log_serial(f"Error drawing text: {e}")
         return frame
 
 def generate_frames():
@@ -171,7 +178,7 @@ def generate_frames():
                     yield (b'--frame\r\n'
                            b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
                 else:
-                    print("Failed to encode frame")
+                    log_serial("Failed to encode frame")
             else:
                 # Create a default frame if no camera frame available
                 default_frame = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -201,6 +208,8 @@ def send_checkin_request(user_id, schedule_id=None, status=None):
     if status:
         payload["status"] = status
 
+    log_serial(f"Sending check-in request: {payload}")
+
     try:
         response = requests.post(f"{SERVER_URL}/api/checkin/confirm", json=payload, timeout=2)
         
@@ -210,26 +219,26 @@ def send_checkin_request(user_id, schedule_id=None, status=None):
         if response.status_code == 200:
             data = response.json()
             if data.get("success"):
-                print(f"Confirmed check-in for user {user_id}: {data.get('status')}")
+                log_serial(f"Confirmed check-in for user {user_id}: {data.get('status')}")
                 # Clear active request if successful
                 with active_checkin_lock:
                     if active_checkin_request and str(active_checkin_request.get('userId')) == str(user_id):
                         active_checkin_request = None
             else:
-                print(f"Server rejected check-in for user {user_id}: {data.get('message')}")
+                log_serial(f"Server rejected check-in for user {user_id}: {data.get('message')}")
         else:
-             print(f"Server error: {response.status_code} - {response.text}")
+             log_serial(f"Server error: {response.status_code} - {response.text}")
 
     except Exception as e:
-        print(f"Failed to notify server: {e}")
+        log_serial(f"Failed to notify server: {e}")
 
 def camera_loop():
     global global_frame, is_checking_in, active_checkin_request
-    print("Starting camera loop...")
+    log_serial("Starting camera loop...")
     cap = get_camera()
     
     if not cap.isOpened():
-        print("Error: Camera is not opened!")
+        log_serial("Error: Camera is not opened!")
         is_checking_in = False
         return
     
@@ -253,7 +262,7 @@ def camera_loop():
                 last_detected_ids, last_detected_names, last_face_locations, confidences = face_recognizer.recognize_face(frame)
                 
                 if last_detected_ids:
-                    print(f"Detected users: {last_detected_ids}")
+                    log_serial(f"Detected users: {last_detected_ids}")
                     
                     # Check against active schedule
                     with active_checkin_lock:
@@ -280,13 +289,13 @@ def camera_loop():
                                             else:
                                                 status = "missed" # > 4 hours
                                             
-                                            print(f"Match found! User: {user_id}, Conf: {confidence:.1f}%, Diff: {diff_hours:.2f}h, Status: {status}")
+                                            log_serial(f"Match found! User: {user_id}, Conf: {confidence:.1f}%, Diff: {diff_hours:.2f}h, Status: {status}")
                                             
                                             # Send to server
                                             threading.Thread(target=send_checkin_request, args=(user_id, active_checkin_request.get('scheduleId'), status)).start()
                                             
                                         except Exception as e:
-                                            print(f"Error calculating time/status: {e}")
+                                            log_serial(f"Error calculating time/status: {e}")
                         else:
                             # Fallback for non-scheduled checkins (optional, or keep existing behavior)
                             for user_id in last_detected_ids:
@@ -304,7 +313,7 @@ def camera_loop():
                 # print(f"Updated global_frame with frame {frame_count}") # Commented out to reduce log noise
                 
         else:
-            print("Failed to grab frame from camera")
+            log_serial("Failed to grab frame from camera")
             time.sleep(1)
         
         # Removed time.sleep(0.05) to maximize FPS
@@ -313,7 +322,7 @@ def camera_loop():
     release_camera()
     cv2.destroyAllWindows()
     is_checking_in = False
-    print("Camera loop finished.")
+    log_serial("Camera loop finished.")
 
 @app.route('/')
 def index():
@@ -358,7 +367,7 @@ def video_feed():
     # Auto-start camera if not running
     global is_checking_in, checkin_thread, stop_checkin_event
     if not is_checking_in:
-        print("Auto-starting camera for video feed...")
+        log_serial("Auto-starting camera for video feed...")
         stop_checkin_event.clear()
         is_checking_in = True
         checkin_thread = threading.Thread(target=camera_loop)
@@ -371,10 +380,10 @@ def start_checkin_process():
     global is_checking_in, checkin_thread, stop_checkin_event
     
     if is_checking_in:
-        print("Check-in already in progress.")
+        log_serial("Check-in already in progress.")
         return False
     
-    print("Starting check-in process...")
+    log_serial("Starting check-in process...")
     stop_checkin_event.clear()
     is_checking_in = True
     checkin_thread = threading.Thread(target=camera_loop)
@@ -383,7 +392,7 @@ def start_checkin_process():
 
 @sio.event
 def triggerCheckin(data):
-    print(f"Received triggerCheckin event from Server: {data}")
+    log_serial(f"Received triggerCheckin event from Server: {data}")
     start_checkin_process()
 
 @app.route('/trigger-checkin', methods=['POST'])
