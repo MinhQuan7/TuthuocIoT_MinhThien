@@ -606,7 +606,7 @@ app.get("/api/users/images", async (req, res) => {
 // API for Raspberry Pi to confirm check-in
 app.post("/api/checkin/confirm", async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { userId, scheduleId, status } = req.body;
     const data = await dataManager.loadData();
     const user = data.users.find((u) => String(u.id) === String(userId));
 
@@ -617,52 +617,60 @@ app.post("/api/checkin/confirm", async (req, res) => {
     }
 
     const now = new Date();
-    const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+    let confirmedSchedule = null;
+    let checkInStatus = status; // Use status from Rasp if available
 
-    // Find schedules for this user today
-    const userSchedules = data.schedules.filter(
-      (s) => String(s.userId) === String(userId) && s.date === todayStr
-    );
-
-    if (userSchedules.length === 0) {
-      return res.json({ success: false, message: "No schedules for today" });
+    if (scheduleId) {
+      confirmedSchedule = data.schedules.find(
+        (s) => String(s.id) === String(scheduleId)
+      );
     }
 
-    let confirmedSchedule = null;
-    let checkInStatus = null; // 'taken', 'late'
+    // Fallback logic if Rasp didn't send scheduleId/status (legacy support)
+    if (!confirmedSchedule) {
+      const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+      // Find schedules for this user today
+      const userSchedules = data.schedules.filter(
+        (s) => String(s.userId) === String(userId) && s.date === todayStr
+      );
 
-    for (const schedule of userSchedules) {
-      // Skip if already completed/checked-in
-      if (schedule.status === "taken" || schedule.status === "late") {
-        continue;
+      if (userSchedules.length === 0) {
+        return res.json({ success: false, message: "No schedules for today" });
       }
 
-      // Calculate scheduled time
-      const periodTime = getPeriodTime(schedule.period, schedule.customTime);
-      const scheduledTime = new Date(schedule.date);
-      scheduledTime.setHours(periodTime.hour, periodTime.minute, 0, 0);
+      for (const schedule of userSchedules) {
+        // Skip if already completed/checked-in
+        if (
+          schedule.status === "taken" ||
+          schedule.status === "late" ||
+          schedule.status === "missed"
+        ) {
+          continue;
+        }
 
-      // Calculate difference in hours
-      const diffMs = now - scheduledTime;
-      const diffHours = diffMs / (1000 * 60 * 60);
+        // Calculate scheduled time
+        const periodTime = getPeriodTime(schedule.period, schedule.customTime);
+        const scheduledTime = new Date(schedule.date);
+        scheduledTime.setHours(periodTime.hour, periodTime.minute, 0, 0);
 
-      // Logic:
-      // -1h <= diff <= 1h: On Time (Taken)
-      // 1h < diff <= 4h: Late
+        // Calculate difference in hours
+        const diffMs = now - scheduledTime;
+        const diffHours = diffMs / (1000 * 60 * 60);
 
-      if (diffHours >= -1 && diffHours <= 1) {
-        checkInStatus = "taken";
-        confirmedSchedule = schedule;
-        break; // Found the matching slot
-      } else if (diffHours > 1 && diffHours <= 4) {
-        checkInStatus = "late";
-        confirmedSchedule = schedule;
-        break; // Found the matching slot
+        if (diffHours >= -1 && diffHours <= 1) {
+          checkInStatus = "taken";
+          confirmedSchedule = schedule;
+          break;
+        } else if (diffHours > 1 && diffHours <= 4) {
+          checkInStatus = "late";
+          confirmedSchedule = schedule;
+          break;
+        }
       }
     }
 
     if (confirmedSchedule && checkInStatus) {
-      // Update schedule status using DataManager to ensure timeline and stats are updated
+      // Update schedule status using DataManager
       await dataManager.updateScheduleStatus(
         confirmedSchedule.id,
         checkInStatus,
@@ -678,9 +686,28 @@ app.post("/api/checkin/confirm", async (req, res) => {
         : confirmedSchedule.medicineName || "Thuốc";
 
       // Create Alert Message
-      const statusText = checkInStatus === "taken" ? "Đúng giờ" : "Trễ";
-      const alertType = checkInStatus === "taken" ? "success" : "warning";
-      const message = `Đã xác nhận: ${user.name} đã uống thuốc (${medicineName}) - ${statusText}!`;
+      // Requirement: "ĐÃ UỐNG VÀ UỐNG THUỐC GÌ VÀO MẤY GIỜ"
+      // Requirement: "không sử dụng icon gì trong mục cảnh báo nhé"
+
+      const timeString = now.toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      let statusText = "";
+      let alertType = "info";
+
+      if (checkInStatus === "taken") {
+        statusText = "ĐÃ UỐNG";
+        alertType = "success";
+      } else if (checkInStatus === "late") {
+        statusText = "UỐNG TRỄ";
+        alertType = "warning";
+      } else if (checkInStatus === "missed") {
+        statusText = "CHƯA UỐNG"; // Or "QUÁ GIỜ"
+        alertType = "danger";
+      }
+
+      const message = `${statusText}: ${user.name} đã uống ${medicineName} vào lúc ${timeString}`;
 
       // Add alert
       await dataManager.addAlert({
@@ -703,6 +730,7 @@ app.post("/api/checkin/confirm", async (req, res) => {
         medicineName: medicineName,
         status: checkInStatus,
         timestamp: now.toISOString(),
+        message: message,
       });
 
       logAction("Check-in Confirmed", `${user.name} - ${checkInStatus}`);

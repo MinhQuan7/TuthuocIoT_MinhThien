@@ -5,6 +5,7 @@ import threading
 import requests
 import socketio
 import numpy as np
+from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont
 from flask import Flask, request, jsonify, Response
 from dotenv import load_dotenv
@@ -23,6 +24,10 @@ is_checking_in = False
 checkin_thread = None
 stop_checkin_event = threading.Event()
 
+# Active Check-in Request (from Server)
+active_checkin_request = None
+active_checkin_lock = threading.Lock()
+
 # Socket.IO Client
 sio = socketio.Client()
 
@@ -37,6 +42,19 @@ def connect_error(data):
 @sio.event
 def disconnect():
     print("Disconnected from Web Server")
+
+@sio.event
+def triggerCheckin(data):
+    """
+    Received when it's time for a user to take medicine.
+    data: { scheduleId, userId, userName, medicineName, scheduledTime, timestamp }
+    """
+    global active_checkin_request
+    print(f"Received Check-in Trigger: {data}")
+    with active_checkin_lock:
+        active_checkin_request = data
+        # Optional: Set a timeout to clear this request if no one checks in after X hours?
+        # For now, we keep it until replaced or fulfilled.
 
 @sio.event
 def syncFacesRequest(data):
@@ -166,9 +184,9 @@ def generate_frames():
                 # print("No global_frame available, yielding default frame")
         time.sleep(0.04) # ~25 FPS for smoother streaming
 
-def send_checkin_request(user_id):
+def send_checkin_request(user_id, schedule_id=None, status=None):
     """Sends check-in request in a separate thread to avoid blocking."""
-    global last_checkin_times
+    global last_checkin_times, active_checkin_request
     
     current_time = time.time()
     last_time = last_checkin_times.get(user_id, 0)
@@ -177,8 +195,14 @@ def send_checkin_request(user_id):
         # print(f"Skipping check-in for user {user_id} (Cooldown active)")
         return
 
+    payload = {"userId": user_id}
+    if schedule_id:
+        payload["scheduleId"] = schedule_id
+    if status:
+        payload["status"] = status
+
     try:
-        response = requests.post(f"{SERVER_URL}/api/checkin/confirm", json={"userId": user_id}, timeout=2)
+        response = requests.post(f"{SERVER_URL}/api/checkin/confirm", json=payload, timeout=2)
         
         # Update cooldown regardless of success to prevent spamming server with invalid requests
         last_checkin_times[user_id] = current_time
@@ -187,6 +211,10 @@ def send_checkin_request(user_id):
             data = response.json()
             if data.get("success"):
                 print(f"Confirmed check-in for user {user_id}: {data.get('status')}")
+                # Clear active request if successful
+                with active_checkin_lock:
+                    if active_checkin_request and str(active_checkin_request.get('userId')) == str(user_id):
+                        active_checkin_request = None
             else:
                 print(f"Server rejected check-in for user {user_id}: {data.get('message')}")
         else:
@@ -196,7 +224,7 @@ def send_checkin_request(user_id):
         print(f"Failed to notify server: {e}")
 
 def camera_loop():
-    global global_frame, is_checking_in
+    global global_frame, is_checking_in, active_checkin_request
     print("Starting camera loop...")
     cap = get_camera()
     
@@ -221,13 +249,48 @@ def camera_loop():
             # Only run face recognition every N frames
             if frame_count % process_every_n_frames == 0:
                 # Face recognition logic
-                last_detected_ids, last_detected_names, last_face_locations = face_recognizer.recognize_face(frame)
+                # Returns: ids, names, locations, confidences
+                last_detected_ids, last_detected_names, last_face_locations, confidences = face_recognizer.recognize_face(frame)
                 
                 if last_detected_ids:
                     print(f"Detected users: {last_detected_ids}")
-                    for user_id in last_detected_ids:
-                        # Run in a thread to avoid blocking camera
-                        threading.Thread(target=send_checkin_request, args=(user_id,)).start()
+                    
+                    # Check against active schedule
+                    with active_checkin_lock:
+                        if active_checkin_request:
+                            target_user_id = str(active_checkin_request.get('userId'))
+                            
+                            for i, user_id in enumerate(last_detected_ids):
+                                if str(user_id) == target_user_id:
+                                    confidence = confidences[i]
+                                    if confidence > 60: # User requirement: > 60% match
+                                        try:
+                                            # Calculate time difference
+                                            scheduled_ts = active_checkin_request.get('timestamp') / 1000.0
+                                            current_ts = time.time()
+                                            
+                                            diff_seconds = current_ts - scheduled_ts
+                                            diff_hours = diff_seconds / 3600.0
+                                            
+                                            status = None
+                                            if diff_hours < 2:
+                                                status = "taken"
+                                            elif 2 <= diff_hours <= 4:
+                                                status = "late"
+                                            else:
+                                                status = "missed" # > 4 hours
+                                            
+                                            print(f"Match found! User: {user_id}, Conf: {confidence:.1f}%, Diff: {diff_hours:.2f}h, Status: {status}")
+                                            
+                                            # Send to server
+                                            threading.Thread(target=send_checkin_request, args=(user_id, active_checkin_request.get('scheduleId'), status)).start()
+                                            
+                                        except Exception as e:
+                                            print(f"Error calculating time/status: {e}")
+                        else:
+                            # Fallback for non-scheduled checkins (optional, or keep existing behavior)
+                            for user_id in last_detected_ids:
+                                threading.Thread(target=send_checkin_request, args=(user_id,)).start()
 
             # Draw using the last known locations and names
             frame = draw_faces_and_names(frame, last_face_locations, last_detected_names)

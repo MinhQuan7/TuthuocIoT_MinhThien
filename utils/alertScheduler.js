@@ -17,7 +17,7 @@ class AlertScheduler {
   }
 
   // Trigger Raspberry Pi Check-in via Socket.IO
-  triggerRaspberryPi() {
+  triggerRaspberryPi(schedule, user, medicine) {
     return new Promise((resolve) => {
       if (!this.io) {
         console.error("[AlertScheduler] Socket.IO not initialized");
@@ -29,12 +29,25 @@ class AlertScheduler {
         "[AlertScheduler] Emitting 'triggerCheckin' event to Raspberry Pi..."
       );
 
-      // Emit event to all connected clients (including the Pi)
-      // In a more complex setup, you might want to target a specific socket ID
-      this.io.emit("triggerCheckin", { timestamp: Date.now() });
+      // Calculate scheduled time for the check-in window
+      // Assuming schedule.period is like "08:00" or customTime
+      // We need a concrete timestamp for the Rasp to compare against
+      const now = new Date();
+      // This is an approximation since the alert triggers AT the time
+      // Ideally we pass the exact scheduled timestamp
 
-      // Assume success if emitted, as we can't easily get an ack from a broadcast
-      // Alternatively, implement an acknowledgement callback if needed
+      const payload = {
+        scheduleId: schedule.id,
+        userId: user.id,
+        userName: user.name,
+        medicineName: medicine.name,
+        scheduledTime: now.toISOString(), // Alert triggers at scheduled time
+        timestamp: Date.now(),
+      };
+
+      // Emit event to all connected clients (including the Pi)
+      this.io.emit("triggerCheckin", payload);
+
       resolve(true);
     });
   }
@@ -196,7 +209,7 @@ class AlertScheduler {
       const iotSuccess = await this.eraIotClient.sendMedicationReminder(30000);
 
       // Trigger Raspberry Pi Camera Check-in
-      const piSuccess = await this.triggerRaspberryPi();
+      const piSuccess = await this.triggerRaspberryPi(schedule, user, medicine);
 
       if (iotSuccess) {
         console.log(

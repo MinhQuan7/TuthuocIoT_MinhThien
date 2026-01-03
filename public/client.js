@@ -803,8 +803,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // === Các hàm render HTML ===
   function createAlertHTML(alert) {
-    const icon = alert.type === "danger" ? "" : "";
-    return `<li class="alert-item ${alert.type}"><span class="icon">${icon}</span><div>${alert.message}</div></li>`;
+    // Requirement: "không sử dụng icon gì trong mục cảnh báo nhé"
+    return `<li class="alert-item ${alert.type}"><div>${alert.message}</div></li>`;
   }
 
   function renderAlertsList(alerts) {
@@ -1602,6 +1602,34 @@ document.addEventListener("DOMContentLoaded", function () {
 
     console.log("Initial data rendering completed!");
     showNotification("Hệ thống đã khởi động thành công!", "success", 3000);
+  });
+
+  // Listen for Check-in Confirmation
+  socket.on("checkinConfirmed", (data) => {
+    console.log("Check-in Confirmed:", data);
+
+    let type = "info";
+    let statusText = "";
+
+    if (data.status === "taken") {
+      statusText = "đã uống";
+      type = "success";
+    } else if (data.status === "late") {
+      statusText = "uống trễ";
+      type = "warning";
+    } else if (data.status === "missed") {
+      statusText = "chưa uống";
+      type = "error";
+    }
+
+    const timeStr = new Date(data.timestamp).toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const message = `${data.userName} ${statusText} ${data.medicineName} vào lúc ${timeStr}`;
+
+    // Show popup notification
+    showNotification(message, type, 10000);
   });
 
   // Enhanced IoT status updates with visual feedback
