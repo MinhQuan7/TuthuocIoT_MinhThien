@@ -96,9 +96,10 @@ const upload = multer({
   },
 });
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 
+console.log("Static files served from:", path.join(__dirname, "public"));
 console.log("Khởi động máy chủ Tủ Thuốc AIoT (Production Mode)...");
 
 // Global variables
