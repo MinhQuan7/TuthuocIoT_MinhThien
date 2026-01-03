@@ -26,9 +26,9 @@ try:
 except Exception as e:
     print(f"Error loading faces: {e}")
 
-is_checking_in = False
-checkin_thread = None
-stop_checkin_event = threading.Event()
+is_camera_running = False
+camera_thread = None
+stop_camera_event = threading.Event()
 
 # Active Check-in Request (from Server)
 active_checkin_request = None
@@ -66,7 +66,7 @@ def triggerCheckin(data):
         active_checkin_request = data
         # Optional: Set a timeout to clear this request if no one checks in after X hours?
         # For now, we keep it until replaced or fulfilled.
-    start_checkin_process()
+    log_serial("Check-in request active. Face recognition logic enabled.")
 
 @sio.event
 def syncFacesRequest(data):
@@ -239,105 +239,122 @@ def send_checkin_request(user_id, schedule_id=None, status=None):
         log_serial(f"Failed to notify server: {e}")
 
 def camera_loop():
-    global global_frame, is_checking_in, active_checkin_request
+    global global_frame, is_camera_running, active_checkin_request
     log_serial("Starting camera loop...")
     cap = get_camera()
     
     if not cap.isOpened():
         log_serial("Error: Camera is not opened!")
-        is_checking_in = False
+        is_camera_running = False
         return
     
-    frame_count = 0
-    process_every_n_frames = 4 # Process 1 out of every 4 frames
-    
-    # Store last results to display during skipped frames
-    last_detected_ids = []
-    last_detected_names = []
-    last_face_locations = []
-
-    while is_checking_in and not stop_checkin_event.is_set():
-        ret, frame = cap.read()
-        if ret:
-            frame_count += 1
-            
-            # Only run face recognition every N frames
-            if frame_count % process_every_n_frames == 0:
-                # Face recognition logic
-                # Returns: ids, names, locations, confidences
-                last_detected_ids, last_detected_names, last_face_locations, confidences = face_recognizer.recognize_face(frame)
-                
-                if last_face_locations:
-                     log_serial(f"Faces detected: {len(last_face_locations)}. IDs: {last_detected_ids}, Names: {last_detected_names}")
-
-                if last_detected_ids:
-                    # Check against active schedule
-                    with active_checkin_lock:
-                        if active_checkin_request:
-                            target_user_id = str(active_checkin_request.get('userId'))
-                            match_found = False
-                            
-                            for i, user_id in enumerate(last_detected_ids):
-                                if str(user_id) == target_user_id:
-                                    match_found = True
-                                    confidence = confidences[i]
-                                    if confidence > 60: # User requirement: > 60% match
-                                        try:
-                                            # Calculate time difference
-                                            scheduled_ts = active_checkin_request.get('timestamp') / 1000.0
-                                            current_ts = time.time()
-                                            
-                                            diff_seconds = current_ts - scheduled_ts
-                                            diff_hours = diff_seconds / 3600.0
-                                            
-                                            status = None
-                                            if diff_hours < 2:
-                                                status = "taken"
-                                            elif 2 <= diff_hours <= 4:
-                                                status = "late"
-                                            else:
-                                                status = "missed" # > 4 hours
-                                            
-                                            log_serial(f"Match found! User: {user_id}, Conf: {confidence:.1f}%, Diff: {diff_hours:.2f}h, Status: {status}")
-                                            
-                                            # Send to server
-                                            threading.Thread(target=send_checkin_request, args=(user_id, active_checkin_request.get('scheduleId'), status)).start()
-                                            
-                                        except Exception as e:
-                                            log_serial(f"Error calculating time/status: {e}")
-                                    else:
-                                        log_serial(f"Match found but confidence too low: {confidence:.1f}%")
-                            
-                            if not match_found:
-                                log_serial(f"No match for target user {target_user_id}. Detected: {last_detected_ids}")
-
-                        else:
-                            # Fallback for non-scheduled checkins (optional, or keep existing behavior)
-                            for user_id in last_detected_ids:
-                                threading.Thread(target=send_checkin_request, args=(user_id,)).start()
-
-            # Draw using the last known locations and names
-            frame = draw_faces_and_names(frame, last_face_locations, last_detected_names)
-            
-            # Show video locally (X11/Display)
-            cv2.imshow("Tu thuoc AIoT - Face Recognition", frame)
-            cv2.waitKey(1)
-
-            with camera_lock:
-                global_frame = frame.copy()
-                # print(f"Updated global_frame with frame {frame_count}") # Commented out to reduce log noise
-                
-        else:
-            log_serial("Failed to grab frame from camera")
-            time.sleep(1)
+    try:
+        frame_count = 0
+        process_every_n_frames = 4 # Process 1 out of every 4 frames
         
-        # Removed time.sleep(0.05) to maximize FPS
-        # time.sleep(0.01) # Optional: tiny sleep to prevent 100% CPU usage if needed, but usually CV2 waits for camera
+        # Store last results to display during skipped frames
+        last_detected_ids = []
+        last_detected_names = []
+        last_face_locations = []
 
-    release_camera()
-    cv2.destroyAllWindows()
-    is_checking_in = False
-    log_serial("Camera loop finished.")
+        while is_camera_running and not stop_camera_event.is_set():
+            ret, frame = cap.read()
+            if ret:
+                frame_count += 1
+                
+                # Only run face recognition if there is an active check-in request
+                should_recognize = False
+                with active_checkin_lock:
+                    if active_checkin_request:
+                        should_recognize = True
+
+                if should_recognize:
+                    # Only run face recognition every N frames
+                    if frame_count % process_every_n_frames == 0:
+                        # Face recognition logic
+                        # Returns: ids, names, locations, confidences
+                        last_detected_ids, last_detected_names, last_face_locations, confidences = face_recognizer.recognize_face(frame)
+                        
+                        if last_face_locations:
+                             log_serial(f"Faces detected: {len(last_face_locations)}. IDs: {last_detected_ids}, Names: {last_detected_names}")
+
+                        if last_detected_ids:
+                            # Check against active schedule
+                            with active_checkin_lock:
+                                if active_checkin_request:
+                                    target_user_id = str(active_checkin_request.get('userId'))
+                                    match_found = False
+                                    
+                                    for i, user_id in enumerate(last_detected_ids):
+                                        if str(user_id) == target_user_id:
+                                            match_found = True
+                                            confidence = confidences[i]
+                                            if confidence > 60: # User requirement: > 60% match
+                                                try:
+                                                    # Calculate time difference
+                                                    scheduled_ts = active_checkin_request.get('timestamp') / 1000.0
+                                                    current_ts = time.time()
+                                                    
+                                                    diff_seconds = current_ts - scheduled_ts
+                                                    diff_hours = diff_seconds / 3600.0
+                                                    
+                                                    status = None
+                                                    if diff_hours < 2:
+                                                        status = "taken"
+                                                    elif 2 <= diff_hours <= 4:
+                                                        status = "late"
+                                                    else:
+                                                        status = "missed" # > 4 hours
+                                                    
+                                                    log_serial(f"Match found! User: {user_id}, Conf: {confidence:.1f}%, Diff: {diff_hours:.2f}h, Status: {status}")
+                                                    
+                                                    # Send to server
+                                                    threading.Thread(target=send_checkin_request, args=(user_id, active_checkin_request.get('scheduleId'), status)).start()
+                                                    
+                                                except Exception as e:
+                                                    log_serial(f"Error calculating time/status: {e}")
+                                            else:
+                                                log_serial(f"Match found but confidence too low: {confidence:.1f}%")
+                                    
+                                    if not match_found:
+                                        log_serial(f"No match for target user {target_user_id}. Detected: {last_detected_ids}")
+
+                                else:
+                                    # Fallback for non-scheduled checkins (optional, or keep existing behavior)
+                                    for user_id in last_detected_ids:
+                                        threading.Thread(target=send_checkin_request, args=(user_id,)).start()
+                else:
+                    # If no active request, clear previous detections so we don't draw stale boxes
+                    last_detected_ids = []
+                    last_detected_names = []
+                    last_face_locations = []
+
+                # Draw using the last known locations and names (only if we have them)
+                if last_face_locations:
+                    frame = draw_faces_and_names(frame, last_face_locations, last_detected_names)
+                
+                # Show video locally (X11/Display)
+                cv2.imshow("Tu thuoc AIoT - Face Recognition", frame)
+                cv2.waitKey(1)
+
+                with camera_lock:
+                    global_frame = frame.copy()
+                    # print(f"Updated global_frame with frame {frame_count}") # Commented out to reduce log noise
+                    
+            else:
+                log_serial("Failed to grab frame from camera")
+                time.sleep(1)
+            
+            # Removed time.sleep(0.05) to maximize FPS
+            # time.sleep(0.01) # Optional: tiny sleep to prevent 100% CPU usage if needed, but usually CV2 waits for camera
+
+    except Exception as e:
+        log_serial(f"Camera loop crashed: {e}")
+    finally:
+        release_camera()
+        cv2.destroyAllWindows()
+        is_camera_running = False
+        log_serial("Camera loop finished.")
 
 @app.route('/')
 def index():
@@ -379,49 +396,38 @@ def test_camera():
 
 @app.route('/video_feed')
 def video_feed():
-    # Auto-start camera if not running
-    global is_checking_in, checkin_thread, stop_checkin_event
-    if not is_checking_in:
-        log_serial("Auto-starting camera for video feed...")
-        stop_checkin_event.clear()
-        is_checking_in = True
-        checkin_thread = threading.Thread(target=camera_loop)
-        checkin_thread.start()
-        
+    # Camera is always running, just return the stream
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-def start_checkin_process():
-    """Helper function to start the check-in camera loop."""
-    global is_checking_in, checkin_thread, stop_checkin_event
+def start_camera_thread():
+    """Helper function to start the camera loop at startup."""
+    global is_camera_running, camera_thread, stop_camera_event
     
-    if is_checking_in:
-        log_serial("Check-in already in progress.")
-        return False
+    if is_camera_running:
+        log_serial("Camera already running.")
+        return
     
-    log_serial("Starting check-in process...")
-    stop_checkin_event.clear()
-    is_checking_in = True
-    checkin_thread = threading.Thread(target=camera_loop)
-    checkin_thread.start()
-    return True
-
-@sio.event
-def triggerCheckin(data):
-    log_serial(f"Received triggerCheckin event from Server: {data}")
-    start_checkin_process()
+    log_serial("Starting camera thread...")
+    stop_camera_event.clear()
+    is_camera_running = True
+    camera_thread = threading.Thread(target=camera_loop)
+    camera_thread.daemon = True
+    camera_thread.start()
 
 @app.route('/trigger-checkin', methods=['POST'])
 def trigger_checkin():
-    if start_checkin_process():
-        return jsonify({"status": "started"}), 200
-    else:
-        return jsonify({"status": "already_running"}), 200
+    # Manual trigger via HTTP (similar to socket event)
+    # This endpoint now just sets the active request, doesn't start camera (it's already running)
+    return jsonify({"status": "camera_always_on", "message": "Use socket event to set active checkin request"}), 200
 
 @app.route('/stop-checkin', methods=['POST'])
 def stop_checkin():
-    global stop_checkin_event
-    stop_checkin_event.set()
-    return jsonify({"status": "stopping"}), 200
+    # Clears the active checkin request
+    global active_checkin_request
+    with active_checkin_lock:
+        active_checkin_request = None
+    log_serial("Check-in request cleared manually.")
+    return jsonify({"status": "cleared"}), 200
 
 @app.route('/sync-faces', methods=['POST'])
 def sync_faces():
@@ -429,6 +435,9 @@ def sync_faces():
     return jsonify({"success": success}), 200
 
 if __name__ == '__main__':
+    # Start Camera in a background thread
+    start_camera_thread()
+
     # Start Socket.IO client in a background thread
     socket_thread = threading.Thread(target=start_socket_client)
     socket_thread.daemon = True
