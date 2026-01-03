@@ -206,6 +206,10 @@ def send_checkin_request(user_id, schedule_id=None, status=None):
     
     if current_time - last_time < CHECKIN_COOLDOWN:
         # print(f"Skipping check-in for user {user_id} (Cooldown active)")
+        # Reset processing flag if we skip due to cooldown
+        with active_checkin_lock:
+            if active_checkin_request:
+                active_checkin_request['is_processing'] = False
         return
 
     payload = {"userId": user_id}
@@ -232,11 +236,23 @@ def send_checkin_request(user_id, schedule_id=None, status=None):
                         active_checkin_request = None
             else:
                 log_serial(f"Server rejected check-in for user {user_id}: {data.get('message')}")
+                # Reset processing flag on failure so we can retry (after cooldown)
+                with active_checkin_lock:
+                    if active_checkin_request:
+                        active_checkin_request['is_processing'] = False
         else:
              log_serial(f"Server error: {response.status_code} - {response.text}")
+             # Reset processing flag on failure
+             with active_checkin_lock:
+                if active_checkin_request:
+                    active_checkin_request['is_processing'] = False
 
     except Exception as e:
         log_serial(f"Failed to notify server: {e}")
+        # Reset processing flag on exception
+        with active_checkin_lock:
+            if active_checkin_request:
+                active_checkin_request['is_processing'] = False
 
 def camera_loop():
     global global_frame, is_camera_running, active_checkin_request
@@ -288,33 +304,41 @@ def camera_loop():
                                     for i, user_id in enumerate(last_detected_ids):
                                         if str(user_id) == target_user_id:
                                             match_found = True
-                                            confidence = confidences[i]
-                                            if confidence > 60: # User requirement: > 60% match
-                                                try:
-                                                    # Calculate time difference
-                                                    scheduled_ts = active_checkin_request.get('timestamp') / 1000.0
-                                                    current_ts = time.time()
-                                                    
-                                                    diff_seconds = current_ts - scheduled_ts
-                                                    diff_hours = diff_seconds / 3600.0
-                                                    
-                                                    status = None
-                                                    if diff_hours < 2:
-                                                        status = "taken"
-                                                    elif 2 <= diff_hours <= 4:
-                                                        status = "late"
-                                                    else:
-                                                        status = "missed" # > 4 hours
-                                                    
-                                                    log_serial(f"Match found! User: {user_id}, Conf: {confidence:.1f}%, Diff: {diff_hours:.2f}h, Status: {status}")
-                                                    
-                                                    # Send to server
-                                                    threading.Thread(target=send_checkin_request, args=(user_id, active_checkin_request.get('scheduleId'), status)).start()
-                                                    
-                                                except Exception as e:
-                                                    log_serial(f"Error calculating time/status: {e}")
-                                            else:
-                                                log_serial(f"Match found but confidence too low: {confidence:.1f}%")
+                                        
+                                        # Check if already processing to avoid spam
+                                        if active_checkin_request.get('is_processing'):
+                                            continue
+
+                                        confidence = confidences[i]
+                                        if confidence > 60: # User requirement: > 60% match
+                                            try:
+                                                # Calculate time difference
+                                                scheduled_ts = active_checkin_request.get('timestamp') / 1000.0
+                                                current_ts = time.time()
+                                                
+                                                diff_seconds = current_ts - scheduled_ts
+                                                diff_hours = diff_seconds / 3600.0
+                                                
+                                                status = None
+                                                if diff_hours < 2:
+                                                    status = "taken"
+                                                elif 2 <= diff_hours <= 4:
+                                                    status = "late"
+                                                else:
+                                                    status = "missed" # > 4 hours
+                                                
+                                                log_serial(f"Match found! User: {user_id}, Conf: {confidence:.1f}%, Diff: {diff_hours:.2f}h, Status: {status}")
+                                                
+                                                # Mark as processing
+                                                active_checkin_request['is_processing'] = True
+
+                                                # Send to server
+                                                threading.Thread(target=send_checkin_request, args=(user_id, active_checkin_request.get('scheduleId'), status)).start()
+                                                
+                                            except Exception as e:
+                                                log_serial(f"Error calculating time/status: {e}")
+                                        else:
+                                            log_serial(f"Match found but confidence too low: {confidence:.1f}%")
                                     
                                     if not match_found:
                                         log_serial(f"No match for target user {target_user_id}. Detected: {last_detected_ids}")
