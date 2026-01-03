@@ -20,6 +20,12 @@ CHECKIN_DURATION = int(os.getenv("CHECKIN_DURATION", 3600)) # Seconds
 CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", 0))
 
 face_recognizer = FaceRecognizer(SERVER_URL)
+# Load faces at startup
+try:
+    face_recognizer.load_known_faces()
+except Exception as e:
+    print(f"Error loading faces: {e}")
+
 is_checking_in = False
 checkin_thread = None
 stop_checkin_event = threading.Event()
@@ -261,16 +267,19 @@ def camera_loop():
                 # Returns: ids, names, locations, confidences
                 last_detected_ids, last_detected_names, last_face_locations, confidences = face_recognizer.recognize_face(frame)
                 
+                if last_face_locations:
+                     log_serial(f"Faces detected: {len(last_face_locations)}. IDs: {last_detected_ids}, Names: {last_detected_names}")
+
                 if last_detected_ids:
-                    log_serial(f"Detected users: {last_detected_ids}")
-                    
                     # Check against active schedule
                     with active_checkin_lock:
                         if active_checkin_request:
                             target_user_id = str(active_checkin_request.get('userId'))
+                            match_found = False
                             
                             for i, user_id in enumerate(last_detected_ids):
                                 if str(user_id) == target_user_id:
+                                    match_found = True
                                     confidence = confidences[i]
                                     if confidence > 60: # User requirement: > 60% match
                                         try:
@@ -296,6 +305,12 @@ def camera_loop():
                                             
                                         except Exception as e:
                                             log_serial(f"Error calculating time/status: {e}")
+                                    else:
+                                        log_serial(f"Match found but confidence too low: {confidence:.1f}%")
+                            
+                            if not match_found:
+                                log_serial(f"No match for target user {target_user_id}. Detected: {last_detected_ids}")
+
                         else:
                             # Fallback for non-scheduled checkins (optional, or keep existing behavior)
                             for user_id in last_detected_ids:
