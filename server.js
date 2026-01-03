@@ -285,6 +285,17 @@ io.on("connection", async (socket) => {
       broadcastToAll("userListUpdated", updatedData.users);
       broadcastToAll("statsUpdate", updatedData.statistics);
 
+      // Notify Python script (Raspberry Pi) to sync faces via Socket.IO
+      try {
+        console.log("Triggering face sync (after delete) via Socket.IO...");
+        io.emit("syncFacesRequest", {
+          userId: userId,
+          action: "reload_faces",
+        });
+      } catch (e) {
+        console.error("Error triggering sync:", e);
+      }
+
       socket.emit("actionResponse", {
         success: true,
         message: "Người dùng đã được xóa thành công!",
