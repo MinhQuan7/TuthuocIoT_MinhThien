@@ -39,7 +39,8 @@ sio = socketio.Client()
 
 def log_serial(message):
     """Logs a message with a timestamp to the console (serial output)."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Force Vietnam Time (UTC+7) for logging consistency
+    timestamp = (datetime.utcnow() + timedelta(hours=7)).strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{timestamp}] [SERIAL] {message}")
 
 @sio.event

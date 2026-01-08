@@ -692,6 +692,7 @@ app.post("/api/checkin/confirm", async (req, res) => {
       const timeString = now.toLocaleTimeString("vi-VN", {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "Asia/Ho_Chi_Minh",
       });
       let statusText = "";
       let alertType = "info";
