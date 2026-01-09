@@ -6,6 +6,40 @@ document.addEventListener("DOMContentLoaded", function () {
   const socket = io();
   console.log("Đang kết nối tới máy chủ...");
 
+  /* --- Mobile Menu Logic --- */
+  const menuToggle = document.getElementById("mobile-menu-toggle");
+  const sidebar = document.querySelector(".sidebar");
+
+  if (menuToggle && sidebar) {
+    // Toggle Menu
+    menuToggle.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent document click from closing immediately
+      sidebar.classList.toggle("active");
+    });
+
+    // Close on Outside Click
+    document.addEventListener("click", (e) => {
+      if (
+        sidebar.classList.contains("active") &&
+        !sidebar.contains(e.target) &&
+        !menuToggle.contains(e.target)
+      ) {
+        sidebar.classList.remove("active");
+      }
+    });
+
+    // Close on Link Click
+    const sidebarLinks = sidebar.querySelectorAll("a");
+    sidebarLinks.forEach((link) => {
+      link.addEventListener("click", () => {
+        if (window.innerWidth <= 768) {
+          sidebar.classList.remove("active");
+        }
+      });
+    });
+  }
+  /* ------------------------- */
+
   // === LẤY CÁC PHẦN TỬ DOM ===
   const dateTimeElement = document.getElementById("current-date-time");
   const pageTitle = document.getElementById("page-title");

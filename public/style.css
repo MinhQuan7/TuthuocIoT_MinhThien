@@ -1677,8 +1677,8 @@ select:focus {
   -webkit-appearance: none;
   margin: 0;
 }
-#medicine-quantity-input[type=number],
-#medicine-threshold-input[type=number] {
+#medicine-quantity-input[type="number"],
+#medicine-threshold-input[type="number"] {
   -moz-appearance: textfield;
 }
 
@@ -2073,4 +2073,132 @@ select:focus {
 .delete-medicine-btn:hover svg,
 .delete-inventory-btn:hover svg {
   fill: rgba(220, 38, 38, 0.2);
+}
+
+/* --- Mobile Sidebar / Dropdown Menu --- */
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  margin-right: var(--spacing-md);
+  padding: 4px;
+  border-radius: var(--border-radius-sm);
+  transition: all 0.2s;
+}
+
+.menu-toggle:hover {
+  background-color: var(--surface-hover);
+}
+
+@media (max-width: 768px) {
+  /* Show Toggle Button */
+  .menu-toggle {
+    display: block;
+  }
+
+  /* Main Content Adjustment */
+  .main-content {
+    margin-left: 0;
+    padding: var(--spacing-md);
+    padding-top: 80px; /* Ensure content is pushed down if header is fixed */
+  }
+
+  /* Fixed Mobile Header */
+  header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1001; /* Above sidebar */
+    margin: 0;
+    border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+    justify-content: flex-start;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.95); /* More solid for readability */
+    backdrop-filter: blur(10px);
+  }
+
+  header::before {
+    border-radius: 0; /* Remove top rounded corners for header bar */
+  }
+
+  header h1 {
+    font-size: 1.2rem;
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Hide Date/Time if too crowded or adjust */
+  header .header-info {
+    display: none;
+  }
+
+  /* Sidebar - Transform into Top Dropdown */
+  .sidebar {
+    width: 100%;
+    height: auto; /* Allow content to dictate height */
+    max-height: 80vh; /* Don't take full screen */
+    overflow-y: auto;
+
+    position: fixed;
+    top: 70px; /* Just below the header (adjust based on header height approx) */
+    left: 0;
+    z-index: 1000;
+
+    background: var(--surface-color);
+    border-right: none;
+    border-bottom: 2px solid var(--primary-color);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+
+    /* Animation state: Hidden */
+    transform: translateY(-150%);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    padding: 0;
+    border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+  }
+
+  .sidebar.active {
+    /* Animation state: Visible */
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Hide the sidebar brand header inside the menu since it's on the main header now */
+  .sidebar-header {
+    display: none;
+  }
+
+  .sidebar-nav {
+    padding: var(--spacing-md);
+  }
+
+  .sidebar-nav ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .sidebar-nav a {
+    padding: 12px var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    background-color: var(--background-secondary);
+  }
+
+  .sidebar-nav a.active {
+    box-shadow: none;
+  }
+
+  /* Adjust Dashboard Grid for Mobile */
+  .dashboard-grid {
+    grid-template-columns: 1fr; /* Single column */
+    gap: var(--spacing-md);
+  }
 }
