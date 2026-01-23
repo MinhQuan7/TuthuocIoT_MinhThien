@@ -1,4 +1,5 @@
 // Tủ Thuốc AIoT Server - Production Version
+require('dotenv').config();
 // Author: Tech Lead
 // Version: 2.0.0 - Real Data Implementation
 
