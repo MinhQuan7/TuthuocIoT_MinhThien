@@ -3,39 +3,101 @@ document.addEventListener("DOMContentLoaded", function () {
   const GOOGLE_APPS_SCRIPT_URL =
     "https://script.google.com/macros/s/AKfycbxwGPpBwIzg4zGg5s0s9xqzaVbmR0XPM6BHDKRmI9QOQkrAfzCcUq2Sky9jHpAQGyrO/exec"; // Ví dụ: "https://script.google.com/macros/s/AKfycbx.../exec"
 
-  const socket = io();
-  console.log("Đang kết nối tới máy chủ...");
+  /* --- Socket.IO Connection Safety Check --- */
+  let socket;
+  try {
+    if (typeof io !== "undefined") {
+      socket = io();
+      console.log("Đang kết nối tới máy chủ...");
+    } else {
+      console.warn("Socket.IO client library not loaded. Real-time features disabled.");
+      // Create a dummy socket object to prevent crashes
+      socket = {
+        on: () => {},
+        emit: () => {},
+        connected: false
+      };
+    }
+  } catch (error) {
+    console.error("Error initializing Socket.IO:", error);
+    socket = { on: () => {}, emit: () => {}, connected: false };
+  }
 
-  /* --- Mobile Menu Logic --- */
+  /* --- Mobile Menu Logic (Enhanced) --- */
   const menuToggle = document.getElementById("mobile-menu-toggle");
-  const sidebar = document.querySelector(".sidebar");
+  const sidebar = document.getElementById("sidebar");
+  const sidebarOverlay = document.getElementById("sidebar-overlay");
+
+  function openSidebar() {
+    if (sidebar && sidebarOverlay) {
+      sidebar.classList.add("active");
+      sidebarOverlay.classList.add("active");
+      menuToggle?.classList.add("active");
+      document.body.classList.add("sidebar-open");
+    }
+  }
+
+  function closeSidebar() {
+    if (sidebar && sidebarOverlay) {
+      sidebar.classList.remove("active");
+      sidebarOverlay.classList.remove("active");
+      menuToggle?.classList.remove("active");
+      document.body.classList.remove("sidebar-open");
+    }
+  }
 
   if (menuToggle && sidebar) {
     // Toggle Menu
     menuToggle.addEventListener("click", (e) => {
-      e.stopPropagation(); // Prevent document click from closing immediately
-      sidebar.classList.toggle("active");
+      e.stopPropagation();
+      if (sidebar.classList.contains("active")) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
     });
 
-    // Close on Outside Click
+    // Close on Overlay Click
+    if (sidebarOverlay) {
+      sidebarOverlay.addEventListener("click", () => {
+        closeSidebar();
+      });
+    }
+
+    // Close on Outside Click (for non-overlay areas)
     document.addEventListener("click", (e) => {
       if (
+        window.innerWidth <= 767 &&
         sidebar.classList.contains("active") &&
         !sidebar.contains(e.target) &&
         !menuToggle.contains(e.target)
       ) {
-        sidebar.classList.remove("active");
+        closeSidebar();
       }
     });
 
-    // Close on Link Click
+    // Close on Link Click (Mobile only)
     const sidebarLinks = sidebar.querySelectorAll("a");
     sidebarLinks.forEach((link) => {
       link.addEventListener("click", () => {
-        if (window.innerWidth <= 768) {
-          sidebar.classList.remove("active");
+        if (window.innerWidth <= 767) {
+          closeSidebar();
         }
       });
+    });
+
+    // Close on Escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && sidebar.classList.contains("active")) {
+        closeSidebar();
+      }
+    });
+
+    // Handle window resize - close sidebar if switching from mobile to desktop
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 767 && sidebar.classList.contains("active")) {
+        closeSidebar();
+      }
     });
   }
   /* ------------------------- */
