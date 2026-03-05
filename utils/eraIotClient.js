@@ -12,6 +12,11 @@ class EraIotClient {
     this.configId = "148699";
     this.actionOnKey = "cbfe9e98-669a-4fbf-a8d2-45c59c4aef4e";
     this.actionOffKey = "7c1ea8e2-3f7a-4db2-adcc-eeeed0576e36";
+    
+    // Thank You Speaker Configuration (Config ID: 160975)
+    this.speakerActionOnKey = "4a39a617-2022-4f90-9e35-faf36ef54709";
+    this.speakerActionOffKey = "86018047-ed47-4013-b332-a0162e04394a";
+    
     this.initialized = true;
   }
 
@@ -246,6 +251,40 @@ class EraIotClient {
       return true;
     } catch (error) {
       console.error("[E-Ra IoT] Error sending medication reminder:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Trigger the "Thank You" speaker after successful medication
+   * Turns ON the speaker and automatically turns it OFF after 20 seconds
+   * @returns {Promise<boolean>} Success status
+   */
+  async triggerThankYouSpeaker(duration = 20000) {
+    try {
+      console.log(`[E-Ra IoT] Triggering Thank You Speaker for ${duration}ms`);
+
+      // Turn on speaker
+      const onResult = await this.triggerAction(this.speakerActionOnKey);
+
+      if (!onResult) {
+        console.error("[E-Ra IoT] Failed to turn on Thank You Speaker");
+        return false;
+      }
+
+      // Auto turn off after 20 seconds
+      setTimeout(async () => {
+        try {
+          await this.triggerAction(this.speakerActionOffKey);
+          console.log("[E-Ra IoT] Auto turned off Thank You Speaker after 20 seconds");
+        } catch (error) {
+          console.error("[E-Ra IoT] Error auto turning off Thank You Speaker:", error);
+        }
+      }, duration);
+
+      return true;
+    } catch (error) {
+      console.error("[E-Ra IoT] Error triggering Thank You Speaker:", error);
       return false;
     }
   }
