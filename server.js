@@ -701,6 +701,9 @@ app.post("/api/checkin/confirm", async (req, res) => {
       if (checkInStatus === "taken") {
         statusText = "ĐÃ UỐNG";
         alertType = "success";
+        
+        // Trigger Thank you speaker
+        eraIotClient.triggerThankYouSpeaker().catch(e => console.error("Error triggering Thank You speaker:", e));
       } else if (checkInStatus === "late") {
         statusText = "UỐNG TRỄ";
         alertType = "warning";
