@@ -145,20 +145,20 @@ class FaceRecognizer:
             face_distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
             if len(face_distances) > 0:
                 best_match_index = np.argmin(face_distances)
-                # Calculate confidence: 0.0 distance is 100% match. 0.6 is typical threshold.
-                # Let's map 0.6 distance to 0% confidence and 0.0 to 100%.
-                # Formula: max(0, (0.6 - distance) / 0.6) * 100
+                # Calculate confidence: 0.0 distance is 100% match. 0.4 is typical threshold.
+                # Let's map 0.4 distance to 0% confidence and 0.0 to 100%.
+                # Formula: max(0, (0.4 - distance) / 0.4) * 100
                 # Or simpler: (1 - distance) if we assume distance is 0-1.
                 # The user wants > 60% match.
-                # If we use standard threshold 0.6, then any match is "good".
+                # If we use standard threshold 0.4, then any match is "good".
                 # Let's return the raw distance or a calculated percentage.
                 
                 distance = face_distances[best_match_index]
-                if distance < 0.6: # Standard threshold
+                if distance < 0.4: # Standard threshold
                     name = self.known_face_names[best_match_index]
                     user_id = self.known_face_ids[best_match_index]
                     # Convert distance to percentage (approximate)
-                    # 0.0 -> 100%, 0.6 -> 40% (if linear).
+                    # 0.0 -> 100%, 0.4 -> 40% (if linear).
                     # Let's use: (1 - distance) * 100.
                     # If distance is 0.4, confidence is 60%.
                     confidence = (1.0 - distance) * 100
